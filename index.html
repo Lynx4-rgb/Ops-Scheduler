@@ -712,7 +712,7 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 .subtasks-table th{text-align:left;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.5px;font-size:9.5px;padding:4px 6px;border-bottom:1px solid var(--line);}
 .subtasks-table td{padding:5px 6px;border-bottom:1px solid var(--line);color:var(--text);vertical-align:middle;}
 .subtasks-table th:first-child, .subtasks-table td:first-child{width:22px;color:var(--text-dim);text-align:center;}
-.subtasks-table th:last-child, .subtasks-table td:last-child{width:28px;text-align:right;}
+.subtasks-table th:last-child, .subtasks-table td:last-child{width:64px;text-align:right;white-space:nowrap;}
 .subtasks-table td .assumption-note{font-size:9.5px;}
 .subtask-number-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;max-height:122px;overflow-y:auto;padding-right:2px;}
 .subtask-number-box{
@@ -966,6 +966,12 @@ body[data-theme="light-sand"]{ --body-overlay: rgba(245,240,230,.92); }
 .subtask-vrow.is-placed .subtask-vnum{background:var(--green-ok);color:#fff;border-color:var(--green-ok);}
 .subtask-vrow.is-locked{opacity:.3;cursor:not-allowed;}
 .subtask-vrow.is-locked:hover{border-color:var(--line);}
+
+/* inline subtask editing */
+.subtask-edit-input{width:100%;box-sizing:border-box;padding:3px 6px;font-size:11.5px;}
+.subtask-edit-mins{width:56px;box-sizing:border-box;padding:3px 4px;font-size:11.5px;}
+.subtask-editing-row td{background:rgba(242,169,0,.08);}
+.subtasks-table .btn-small{padding:2px 7px;}
 
 </style>
 </head>
@@ -1371,11 +1377,16 @@ function openSubtasksEditor(i, gk){
       ${g.subtasks.length===0 ? '<p class="assumption-note">No subtasks yet.</p>' : `<table class="subtasks-table">
         <thead><tr><th>#</th><th>Name</th><th>Time</th><th></th></tr></thead>
         <tbody>
-        ${g.subtasks.map((s,idx)=>`<tr>
+        ${g.subtasks.map((s,idx)=> window._editingSubtaskId===s.id ? `<tr class="subtask-editing-row">
+          <td>${idx+1}</td>
+          <td><input type="text" id="edit-sub-name" class="subtask-edit-input" value="${escAttr(s.name)}" onkeydown="if(event.key==='Enter')saveSubtaskEdit(${i},'${gk}','${s.id}')"/></td>
+          <td><input type="number" id="edit-sub-mins" class="subtask-edit-mins" value="${s.minutes}" step="5" min="5" ${s.placed?'disabled title="Take it off the grid first to change its time"':''} onkeydown="if(event.key==='Enter')saveSubtaskEdit(${i},'${gk}','${s.id}')"/></td>
+          <td><button class="btn btn-small btn-accent" title="Save" onclick="saveSubtaskEdit(${i},'${gk}','${s.id}')">✓</button><button class="btn btn-small btn-ghost" title="Cancel edit" onclick="cancelSubtaskEdit(${i},'${gk}')">↩</button></td>
+        </tr>` : `<tr>
           <td>${idx+1}</td>
           <td>${escHtml(s.name)}${s.placed?' <span class="assumption-note">(placed)</span>':''}</td>
           <td>${s.minutes}m</td>
-          <td><button class="btn btn-small btn-ghost" onclick="removeSubtaskRow(${i},'${gk}','${s.id}')">✕</button></td>
+          <td><button class="btn btn-small btn-ghost" title="Edit subtask" onclick="editSubtaskRow(${i},'${gk}','${s.id}')">✎</button><button class="btn btn-small btn-ghost" title="Remove subtask" onclick="removeSubtaskRow(${i},'${gk}','${s.id}')">✕</button></td>
         </tr>`).join('')}
         </tbody>
       </table>`}
@@ -1405,6 +1416,44 @@ function addSubtaskRow(i, gk){
   g.segmentMinutes = null; g.segmentsPlaced = 0; // subtasks and equal-session splitting are mutually exclusive
   saveState();
   openSubtasksEditor(i, gk);
+}
+// re-open an editor popup without losing whatever was half-typed in its "add a subtask" row
+function reopenKeepingAddRow(nameId, minsId, reopenFn){
+  const n = document.getElementById(nameId), m = document.getElementById(minsId);
+  const nv = n ? n.value : '', mv = m ? m.value : '';
+  reopenFn();
+  const n2 = document.getElementById(nameId), m2 = document.getElementById(minsId);
+  if(n2 && nv) n2.value = nv;
+  if(m2 && mv) m2.value = mv;
+  const ed = document.getElementById('edit-sub-name') || document.getElementById('proj-edit-name');
+  if(ed){ ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); }
+}
+function editSubtaskRow(i, gk, id){
+  window._editingSubtaskId = id;
+  reopenKeepingAddRow('new-subtask-name','new-subtask-mins',()=>openSubtasksEditor(i,gk));
+}
+function cancelSubtaskEdit(i, gk){
+  window._editingSubtaskId = null;
+  reopenKeepingAddRow('new-subtask-name','new-subtask-mins',()=>openSubtasksEditor(i,gk));
+}
+function saveSubtaskEdit(i, gk, id){
+  const wd = ensureWeekData(currentWeekKey());
+  const g = wd.goals[i][gk];
+  const s = (g.subtasks||[]).find(x=>x.id===id);
+  if(!s) return;
+  const nameEl = document.getElementById('edit-sub-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if(!name){ if(nameEl) nameEl.focus(); return; }
+  const minsEl = document.getElementById('edit-sub-mins');
+  if(!s.placed && minsEl){ s.minutes = Math.max(5, parseInt(minsEl.value)||s.minutes); }
+  s.name = name;
+  // a placed subtask also shows its name on the weekly grid - keep that in step
+  Object.keys(wd.goalPlacements).forEach(di=>{
+    wd.goalPlacements[di].forEach(p=>{ if(p.subtaskId===id) p.name = name; });
+  });
+  window._editingSubtaskId = null;
+  saveState();
+  reopenKeepingAddRow('new-subtask-name','new-subtask-mins',()=>openSubtasksEditor(i,gk));
 }
 function removeSubtaskRow(i, gk, subtaskId){
   const g = ensureWeekData(currentWeekKey()).goals[i][gk];
@@ -3689,7 +3738,14 @@ function openProjectSubtasksEditor(taskId){
     <h2>${escHtml(t.name)} — Subtasks</h2>
     <p>Each subtask has its own time. The project's total time is always the sum of its subtasks (currently <strong>${sum}m</strong>).</p>
     ${t.subtasks.length===0 ? '<p class="assumption-note">No subtasks yet.</p>' : `<table class="subtasks-table"><thead><tr><th>#</th><th>Name</th><th>Time</th><th></th></tr></thead><tbody>
-      ${t.subtasks.map((s,i)=>`<tr><td>${i+1}</td><td>${escHtml(s.name)}${s.completed?' <span class="assumption-note">(done)</span>':(projectSubtaskPlaced(t.id,s.id)?' <span class="assumption-note">(on calendar)</span>':'')}</td><td>${s.minutes}m</td><td><button class="btn btn-small btn-ghost" onclick="removeProjectSubtask('${t.id}','${s.id}')">✕</button></td></tr>`).join('')}
+      ${t.subtasks.map((s,i)=>{
+        const locked = s.completed || projectSubtaskPlaced(t.id,s.id);
+        if(window._editingProjSubId===s.id) return `<tr class="subtask-editing-row"><td>${i+1}</td>
+          <td><input type="text" id="proj-edit-name" class="subtask-edit-input" value="${escAttr(s.name)}" onkeydown="if(event.key==='Enter')saveProjectSubtaskEdit('${t.id}','${s.id}')"/></td>
+          <td><input type="number" id="proj-edit-mins" class="subtask-edit-mins" value="${s.minutes}" step="5" min="5" ${locked?'disabled title="Take it off the calendar first to change its time"':''} onkeydown="if(event.key==='Enter')saveProjectSubtaskEdit('${t.id}','${s.id}')"/></td>
+          <td><button class="btn btn-small btn-accent" title="Save" onclick="saveProjectSubtaskEdit('${t.id}','${s.id}')">✓</button><button class="btn btn-small btn-ghost" title="Cancel edit" onclick="cancelProjectSubtaskEdit('${t.id}')">↩</button></td></tr>`;
+        return `<tr><td>${i+1}</td><td>${escHtml(s.name)}${s.completed?' <span class="assumption-note">(done)</span>':(locked?' <span class="assumption-note">(on calendar)</span>':'')}</td><td>${s.minutes}m</td><td><button class="btn btn-small btn-ghost" title="Edit subtask" onclick="editProjectSubtask('${t.id}','${s.id}')">✎</button><button class="btn btn-small btn-ghost" title="Remove subtask" onclick="removeProjectSubtask('${t.id}','${s.id}')">✕</button></td></tr>`;
+      }).join('')}
     </tbody></table>`}
     <div class="project-add-row" style="margin-top:10px;">
       <input type="text" id="proj-sub-name" placeholder="Subtask name..."/>
@@ -3698,6 +3754,37 @@ function openProjectSubtasksEditor(taskId){
     </div>
     <div class="modal-actions"><button class="btn btn-accent btn-small" onclick="closeModal();renderRoster();">Done</button></div>
   </div></div>`;
+}
+function editProjectSubtask(taskId, id){
+  window._editingProjSubId = id;
+  reopenKeepingAddRow('proj-sub-name','proj-sub-mins',()=>openProjectSubtasksEditor(taskId));
+}
+function cancelProjectSubtaskEdit(taskId){
+  window._editingProjSubId = null;
+  reopenKeepingAddRow('proj-sub-name','proj-sub-mins',()=>openProjectSubtasksEditor(taskId));
+}
+function saveProjectSubtaskEdit(taskId, id){
+  const t = state.tasks.find(x=>x.id===taskId); if(!t) return;
+  const s = (t.subtasks||[]).find(x=>x.id===id); if(!s) return;
+  const nameEl = document.getElementById('proj-edit-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if(!name){ if(nameEl) nameEl.focus(); return; }
+  const locked = s.completed || projectSubtaskPlaced(taskId, id);
+  const minsEl = document.getElementById('proj-edit-mins');
+  if(!locked && minsEl) s.minutes = Math.max(5, parseInt(minsEl.value)||s.minutes);
+  s.name = name;
+  t.time = t.subtasks.reduce((sum,x)=>sum+x.minutes,0);
+  // anything already on the calendar for this subtask shows its new name too
+  Object.values(state.daily||{}).forEach(d=>{
+    Object.values(d.slots||{}).forEach(sl=>{
+      if(!sl) return;
+      if(sl.projectRef && sl.projectRef.subtaskId===id) sl.customText = t.name+': '+name;
+      if(sl.isMulti && sl.subItems) sl.subItems.forEach(x=>{ if(x.projectRef && x.projectRef.subtaskId===id) x.customText = t.name+': '+name; });
+    });
+  });
+  window._editingProjSubId = null;
+  saveState();
+  reopenKeepingAddRow('proj-sub-name','proj-sub-mins',()=>openProjectSubtasksEditor(taskId));
 }
 function addProjectSubtask(taskId){
   const t = state.tasks.find(x=>x.id===taskId); if(!t) return;
@@ -3860,7 +3947,7 @@ function clearDay(dateStr){
   saveState(); closeModal(); renderDaily();
   showToast('Day cleared');
 }
-function closeModal(){ document.getElementById('modal-root').innerHTML=''; window._showAllTasksOverride = false; window._quickAddMode = null; window._projectPick = null; }
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; window._showAllTasksOverride = false; window._quickAddMode = null; window._projectPick = null; window._editingSubtaskId = null; window._editingProjSubId = null; }
 
 /* ---- drag & drop (long-press on touch, click-drag on desktop) ---- */
 function startTaskDrag(ev, dateStr, slotKey){
@@ -4884,9 +4971,15 @@ function renderProjectDraftBox(){
   if(newTaskDraft.workType!=='Project'){ box.style.display='none'; box.innerHTML=''; return; }
   const subs = newTaskDraft.subtasks || (newTaskDraft.subtasks=[]);
   box.style.display = 'block';
+  const keepName = (document.getElementById('new-sub-name')||{}).value || '';
+  const keepMins = (document.getElementById('new-sub-mins')||{}).value || '';
   box.innerHTML = `<label>Project Subtasks — split the project into pieces, each with its own time. They must add up to the Time Needed above.</label>
     ${subs.length===0 ? '<p class="assumption-note">No subtasks yet.</p>' : `<table class="subtasks-table"><thead><tr><th>#</th><th>Name</th><th>Time</th><th></th></tr></thead><tbody>
-      ${subs.map((s,i)=>`<tr><td>${i+1}</td><td>${escHtml(s.name)}</td><td>${s.minutes}m</td><td><button type="button" class="btn btn-small btn-ghost" onclick="removeDraftSubtask('${s.id}')">✕</button></td></tr>`).join('')}
+      ${subs.map((s,i)=> window._editingDraftSubId===s.id ? `<tr class="subtask-editing-row"><td>${i+1}</td>
+        <td><input type="text" id="draft-edit-name" class="subtask-edit-input" value="${escAttr(s.name)}" onkeydown="if(event.key==='Enter')saveDraftSubtask('${s.id}')"/></td>
+        <td><input type="number" id="draft-edit-mins" class="subtask-edit-mins" value="${s.minutes}" step="5" min="5" onkeydown="if(event.key==='Enter')saveDraftSubtask('${s.id}')"/></td>
+        <td><button type="button" class="btn btn-small btn-accent" title="Save" onclick="saveDraftSubtask('${s.id}')">✓</button><button type="button" class="btn btn-small btn-ghost" title="Cancel edit" onclick="cancelDraftSubtaskEdit()">↩</button></td></tr>`
+      : `<tr><td>${i+1}</td><td>${escHtml(s.name)}</td><td>${s.minutes}m</td><td><button type="button" class="btn btn-small btn-ghost" title="Edit subtask" onclick="editDraftSubtask('${s.id}')">✎</button><button type="button" class="btn btn-small btn-ghost" title="Remove subtask" onclick="removeDraftSubtask('${s.id}')">✕</button></td></tr>`).join('')}
     </tbody></table>`}
     <div class="project-add-row">
       <input type="text" id="new-sub-name" placeholder="Subtask name..."/>
@@ -4894,6 +4987,24 @@ function renderProjectDraftBox(){
       <button type="button" class="btn btn-small" onclick="addDraftSubtask()">+ Add</button>
     </div>
     <p class="assumption-note" id="new-sub-total">${projectTotalsHtml(subs, projectDraftTotal())}</p>`;
+  const nn = document.getElementById('new-sub-name'), nm = document.getElementById('new-sub-mins');
+  if(nn && keepName) nn.value = keepName;
+  if(nm && keepMins) nm.value = keepMins;
+  const ed = document.getElementById('draft-edit-name');
+  if(ed){ ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); }
+}
+function editDraftSubtask(id){ window._editingDraftSubId = id; renderProjectDraftBox(); }
+function cancelDraftSubtaskEdit(){ window._editingDraftSubId = null; renderProjectDraftBox(); }
+function saveDraftSubtask(id){
+  const s = (newTaskDraft.subtasks||[]).find(x=>x.id===id);
+  if(!s) return;
+  const nameEl = document.getElementById('draft-edit-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if(!name){ if(nameEl) nameEl.focus(); return; }
+  s.name = name;
+  s.minutes = Math.max(5, parseInt((document.getElementById('draft-edit-mins')||{}).value)||s.minutes);
+  window._editingDraftSubId = null;
+  renderProjectDraftBox();
 }
 function addDraftSubtask(){
   const name = (document.getElementById('new-sub-name').value||'').trim();
