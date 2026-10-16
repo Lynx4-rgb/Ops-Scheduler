@@ -20,6 +20,7 @@
 
 
 
+
 :root{
   --bg-0:#101317;
   --bg-1:#171b20;
@@ -111,7 +112,8 @@ body{
   background-image:linear-gradient(90deg, #b8bcc2 0%, #b8bcc2 42%, #ffffff 50%, #b8bcc2 58%, #b8bcc2 100%);
   background-size:300% 100%;
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
-  animation:mottoShimmer 4s linear infinite;
+  animation:mottoShimmer 4s steps(120) infinite;
+  contain:paint;
 }
 @keyframes mottoShimmer{
   0%{background-position:200% 0;}
@@ -377,10 +379,12 @@ select.cat-blank{color:var(--cat-blank-text);}
   background-position:left top;
   background-origin:border-box;
 }
-.task-box.urgent-box:not(.slot-done){
+.task-box.urgent-box:not(.slot-done)::after{
+  content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:rgba(255,215,0,.14);opacity:0;will-change:opacity;
   animation:urgentTint 1.8s ease-in-out infinite;
 }
-@keyframes urgentTint{0%,100%{background-color:var(--bg-1);}50%{background-color:rgba(255,215,0,.14);}}
+@keyframes urgentTint{0%,100%{opacity:0;}50%{opacity:1;}}
 .urgent-inner{height:100%;width:100%;display:flex;align-items:stretch;}
 .urgent-label{color:var(--amber);font-family:var(--font-head);font-size:8.5px;letter-spacing:1.5px;font-weight:900;display:block;text-transform:uppercase;}
 .tb-main{flex:1;display:flex;align-items:center;cursor:pointer;min-width:0;height:100%;padding:0 0 0 8px;touch-action:pan-y;user-select:none;position:relative;z-index:1;overflow:hidden;}
@@ -934,6 +938,35 @@ body[data-theme="light-sand"]{ --body-overlay: rgba(245,240,230,.92); }
 
 
 
+
+/* CPU: pause looping animations whenever the page is hidden or minimised */
+.page-hidden .hq-motto, .page-hidden .led, .page-hidden .task-box.urgent-box::after{animation-play-state:paused !important;}
+
+/* ---- PROJECTS ---- */
+.project-mode-btn{background:#3d5226;}
+.project-mode-btn.active{box-shadow:inset 0 0 0 2px #fff;}
+.project-mode-label{color:#fff;font-weight:900;font-size:15px;letter-spacing:1px;font-family:var(--font-head);white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+.project-box{margin:6px 0 12px;padding:10px 12px;border:1px solid #3d5226;background:rgba(61,82,38,.12);}
+.project-box > label{display:block;font-size:11px;color:#9fc26a;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px;}
+.project-add-row{display:flex;gap:8px;align-items:stretch;margin-top:8px;}
+.project-add-row input[type="text"]{flex:1 1 auto;min-width:0;}
+.project-add-row input[type="number"]{width:64px;flex:0 0 auto;}
+.project-progress{font-size:10px;color:#9fc26a;font-weight:700;margin-left:6px;white-space:nowrap;}
+.project-edit-link,.project-back-link{font-size:10px;color:var(--amber);cursor:pointer;text-decoration:underline;margin-left:4px;}
+.badge-project{background:#3d5226;color:#fff;}
+/* vertical subtask list (projects + weekly goals) - one per row, never scrolls sideways */
+.subtask-vlist{display:flex;flex-direction:column;gap:6px;margin:10px 0;max-height:300px;overflow-y:auto;overflow-x:hidden;}
+.subtask-vrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);background:var(--bg-2);cursor:pointer;min-width:0;}
+.subtask-vrow:hover{border-color:var(--amber);}
+.subtask-vnum{flex:0 0 24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--bg-0);border:1px solid var(--line);font-family:var(--font-head);font-weight:900;font-size:12px;}
+.subtask-vname{flex:1 1 auto;min-width:0;font-size:12.5px;line-height:1.3;overflow-wrap:anywhere;word-break:break-word;}
+.subtask-vmeta{flex:0 0 auto;font-size:10.5px;color:var(--text-dim);white-space:nowrap;}
+.subtask-vrow.is-placed{opacity:.55;cursor:default;border-color:var(--green-ok);}
+.subtask-vrow.is-placed:hover{border-color:var(--green-ok);}
+.subtask-vrow.is-placed .subtask-vnum{background:var(--green-ok);color:#fff;border-color:var(--green-ok);}
+.subtask-vrow.is-locked{opacity:.3;cursor:not-allowed;}
+.subtask-vrow.is-locked:hover{border-color:var(--line);}
+
 </style>
 </head>
 <body>
@@ -993,6 +1026,7 @@ const SEED_TASKS = [];
 
 
 
+
 /* =========================================================
    MAXA OPS SCHEDULER — core logic v2
    Storage: window.storage (personal, shared=false)
@@ -1007,8 +1041,37 @@ const CHANGELOG = {
 };
 const URGENT_EXCLAIM_HTML = '<span class="urgent-exclaim"><span class="urgent-exclaim-bar"></span><span class="urgent-exclaim-dot"></span></span>';
 const CAT_LABEL = {'':'—', Self:'Self', Purchasing:'Purchasing', Ezystor:'Ezystor', Family:'Family', UBTH:'UBTH', BWLRota:'BWL Rota', Claude:'Claude'};
-const WORK_TYPES = ['Hack','Proactive','General'];
-const WT_LABEL = {Hack:'Hack work', Proactive:'Proactive work', General:'General'};
+const WORK_TYPES = ['Hack','Proactive','General','Project'];
+const WT_LABEL = {Hack:'Hack work', Proactive:'Proactive work', General:'General', Project:'Project'};
+const PROJECT_GREEN = '#3d5226';
+function isProjectTask(t){ return !!t && t.workType==='Project'; }
+// A project subtask counts as 'on the calendar' if any live (not moved-on) slot or sub-item carries it, or it's already done.
+// Derived straight from the calendar, so deleting / moving / resizing a slot can never leave it out of sync.
+function projectSubtaskPlaced(taskId, subId){
+  for(const d of Object.values(state.daily||{})){
+    for(const s of Object.values(d.slots||{})){
+      if(!s) continue;
+      if(s.projectRef && s.projectRef.subtaskId===subId && !s.rescheduled) return true;
+      if(s.isMulti && s.subItems && s.subItems.some(x=>x.projectRef && x.projectRef.subtaskId===subId && !x.rescheduled)) return true;
+    }
+  }
+  const t = state.tasks.find(x=>x.id===taskId) || state.archive.find(x=>x.id===taskId);
+  const st = t && (t.subtasks||[]).find(x=>x.id===subId);
+  return !!(st && st.completed);
+}
+function syncProjectSubtaskDone(ref, val){
+  if(!ref) return;
+  const t = state.tasks.find(x=>x.id===ref.taskId) || state.archive.find(x=>x.id===ref.taskId);
+  if(!t) return;
+  const sub = (t.subtasks||[]).find(s=>s.id===ref.subtaskId);
+  if(!sub) return;
+  sub.completed = !!val;
+  const allDone = t.subtasks.length>0 && t.subtasks.every(s=>s.completed);
+  const inActive = state.tasks.some(x=>x.id===t.id);
+  if(allDone && inActive) completeTask(t.id);          // last subtask done -> the whole project is done on the Task List
+  else if(!allDone && !inActive) uncompleteTask(t.id); // undoing a subtask re-opens the project
+  saveState();
+}
 const PRI_RANK = {A:0,B:1,C:2,D:3};
 
 function getWorkTypeConstraint(h,m){
@@ -1563,22 +1626,17 @@ function openSubtaskNumberPicker(di, h, halfOffset, i, gk){
   const wd = ensureWeekData(currentWeekKey());
   const g = wd.goals[i][gk];
   const subtasks = g.subtasks||[];
-  let html = `<div class="modal-back" onclick="if(event.target===this) closeModal()"><div class="modal">
+  const items = subtasks.map((s,idx)=>{
+    const priorAllPlaced = subtasks.slice(0,idx).every(s2=>s2.placed);
+    return {idx:idx+1, name:s.name, minutes:s.minutes, state: s.placed?'placed':(priorAllPlaced?'open':'locked'),
+            onclick:`placeGoalOnGrid(${di},${h},${halfOffset?1:0},${i},'${gk}','${s.id}')`};
+  });
+  document.getElementById('modal-root').innerHTML = `<div class="modal-back" onclick="if(event.target===this) closeModal()"><div class="modal">
     <h2>${escHtml(g.text)}</h2>
-    <p>Pick which subtask to place at ${DAYS[di]} ${fmtHM(h,halfOffset?30:0)}. Subtasks must be placed in order — a box only unlocks once every one before it has been placed.</p>
-    <div class="subtask-number-grid">
-      ${subtasks.map((s,idx)=>{
-        const priorAllPlaced = subtasks.slice(0,idx).every(s2=>s2.placed);
-        const enabled = !s.placed && priorAllPlaced;
-        return `<button class="subtask-number-box ${s.placed?'is-placed':''} ${enabled?'':'is-locked'}" ${enabled?`onclick="placeGoalOnGrid(${di},${h},${halfOffset?1:0},${i},'${gk}','${s.id}')"`:'disabled'} title="${escAttr(s.name)} (${s.minutes}m)">
-          <span class="subtask-number-idx">${idx+1}</span>
-          <span class="subtask-number-name">${escHtml(s.name)}</span>
-        </button>`;
-      }).join('')}
-    </div>
+    <p>Pick which subtask to place at ${DAYS[di]} ${fmtHM(h,halfOffset?30:0)}. Subtasks must be placed in order — one only unlocks once every one before it has been placed.</p>
+    ${subtaskVerticalListHtml(items)}
     <div class="modal-actions"><button class="btn btn-ghost btn-small" onclick="closeModal()">Cancel</button></div>
   </div></div>`;
-  document.getElementById('modal-root').innerHTML = html;
 }
 
 function placeGoalOnGrid(di, h, halfOffset, i, gk, subtaskId){
@@ -2373,6 +2431,8 @@ function autoReleaseUncompletedLinkedTasks(dateStr){
         const t = state.tasks.find(x=>x.id===sub.taskId);
         if(!t) return;
         sub.name = t.name;
+        sub.customText = t.name; // so it's never shown as a nameless 'item' when rescheduling
+        sub.releasedTaskId = sub.taskId; // remember the Task List record so rescheduling can relink to it
         sub.taskId = null;
         sub.released = true;
         released = true;
@@ -2383,6 +2443,7 @@ function autoReleaseUncompletedLinkedTasks(dateStr){
     const t = state.tasks.find(x=>x.id===s.taskId);
     if(!t) return; // already completed/archived elsewhere — nothing to release
     s.customText = t.name; // keep a historical record of what was scheduled here
+    s.releasedTaskId = s.taskId; // remember the Task List record so rescheduling can relink to it
     s.taskId = null;
     s.released = true;
     released = true;
@@ -2829,6 +2890,9 @@ function renderDailyColumn(dateStr, dayIdx, startH, endH){
         rowClass += ' pri-'+taskPri;
         if(taskPri==='U') rowClass += ' urgent-box';
       }
+    } else if(slot && slot.projectRef){
+      const ptask = state.tasks.find(t=>t.id===slot.projectRef.taskId) || state.archive.find(t=>t.id===slot.projectRef.taskId);
+      if(ptask) rowClass += ' pri-'+computePriority(ptask);
     }
     if(isToday && slot){
       const blockEnd = new Date(slotStart.getTime()+span*slotDurationMin*60000);
@@ -2935,7 +2999,8 @@ function renderTaskBoxInner(dateStr, slotKey, slot, span){
       const task = slot.taskId ? (state.tasks.find(t=>t.id===slot.taskId) || state.archive.find(t=>t.id===slot.taskId)) : null;
       const name = task ? task.name : slot.customText;
       fullName = name;
-      const pri = task ? computePriority(task) : null;
+      const rankTask = task || (slot.projectRef ? (state.tasks.find(t=>t.id===slot.projectRef.taskId) || state.archive.find(t=>t.id===slot.projectRef.taskId)) : null);
+      const pri = rankTask ? computePriority(rankTask) : null;
       sq = pri ? `<div class="prio-letter ${slot.source==='weeklygoal' ? 'pri-white' : 'pri-'+pri}">${pri}${task&&isActiveWeeklyGoal(task.id)?'<span class="weekly-goal-mark weekly-goal-mark-mini" title="Active weekly goal this week">G</span>':''}</div>` : '';
       taskHtml = `<div class="tb-main-row"><div class="tname" title="${escAttr(name)}">${escHtml(name)}</div></div>`;
     }
@@ -3051,11 +3116,35 @@ function toggleSprintSubtask(dateStr, slotKey, taskId){
   saveState();
   renderDaily();
 }
+// When a rescheduled copy gets completed, take the original (missed) entry off the calendar it was sitting on
+function removeCarriedOriginal(cf){
+  if(!cf || !cf.date || !cf.key) return;
+  const d = state.daily[cf.date];
+  if(!d || !d.slots) return;
+  const src = d.slots[cf.key];
+  if(!src) return;
+  let chain = null;
+  if(cf.subId){
+    if(!src.isMulti || !src.subItems) return;
+    const sub = src.subItems.find(s=>s.id===cf.subId);
+    if(!sub || !sub.rescheduled) return; // only ever remove an entry that was genuinely moved
+    chain = sub.carriedFrom || null;
+    src.subItems = src.subItems.filter(s=>s.id!==cf.subId);
+    if(src.subItems.length===0) delete d.slots[cf.key];
+  } else {
+    if(!src.rescheduled) return;
+    chain = src.carriedFrom || null;
+    Object.keys(d.slots).forEach(k=>{ if(k===cf.key || (d.slots[k] && d.slots[k].occupiedBy===cf.key)) delete d.slots[k]; });
+  }
+  if(chain) removeCarriedOriginal(chain); // missed several days running: clear the whole trail
+}
 function toggleSlotComplete(dateStr, slotKey, val){
   const d = ensureDaily(dateStr);
   const slot = d.slots[slotKey];
   if(!slot) return;
   slot.completed = val;
+  if(val && slot.carriedFrom){ removeCarriedOriginal(slot.carriedFrom); delete slot.carriedFrom; }
+  if(slot.projectRef) syncProjectSubtaskDone(slot.projectRef, val);
   saveState();
   if(val && slot.taskId){ completeTask(slot.taskId); }
   else if(!val && slot.taskId){ uncompleteTask(slot.taskId); }
@@ -3111,7 +3200,7 @@ function openSlotAssign(dateStr, slotKey){
   });
   goalsForWeek(weekKeyFor(dateStr)).forEach(g=>{ if(g && g.taskId) usedTaskIds.add(g.taskId); });
   const wtConstraint = getWorkTypeConstraint(h,m);
-  let eligible = state.tasks.filter(t=> !usedTaskIds.has(t.id) && (!wtConstraint || t.workType===wtConstraint || t.workType==='General'));
+  let eligible = state.tasks.filter(t=> !isProjectTask(t) && !usedTaskIds.has(t.id) && (!wtConstraint || t.workType===wtConstraint || t.workType==='General'));
   const rank = {A:0,B:1,C:2,D:3};
   const today0 = new Date(); today0.setHours(0,0,0,0);
   const isOverdueTask = t => t.dueDate && new Date(t.dueDate+'T00:00:00') < today0;
@@ -3190,8 +3279,8 @@ function openSlotAssign(dateStr, slotKey){
           <div><div class="sname">${escHtml(c.title)}</div><div class="smeta">${c.minutes}m</div></div>
         </div>`).join('')}
         ${carryCandidates.filter(c=>c.source!=='weeklygoal').map((c,idx)=>{
-          const linkedTask = c.taskId ? (state.tasks.find(x=>x.id===c.taskId) || state.archive.find(x=>x.id===c.taskId)) : null;
-          const rankColor = linkedTask ? (PRI_COLOR_VAR[computePriority(linkedTask)]||'var(--line)') : 'var(--line)';
+          const linkedTask = c.taskId ? (state.tasks.find(x=>x.id===c.taskId) || state.archive.find(x=>x.id===c.taskId)) : (c.projectRef ? state.tasks.find(x=>x.id===c.projectRef.taskId) : null);
+          const rankColor = linkedTask ? (PRI_COLOR_VAR[computePriority(linkedTask)]||'var(--line)') : (c.source==='outlook' ? 'royalblue' : 'var(--line)');
           return `<div class="suggest-item" style="border-left:4px solid ${rankColor};" onclick="assignCarriedToSlot('${dateStr}','${slotKey}',${carryCandidates.indexOf(c)})">
           <div><div class="sname">${escHtml(missedTaskName(c))}</div><div class="smeta">${c.time||(c.span?c.span*15:15)}m</div></div>
         </div>`;
@@ -3204,6 +3293,7 @@ function openSlotAssign(dateStr, slotKey){
           <span class="sprint-mode-label">SPRINT</span>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/></svg>
         </button>
+        <button class="quick-mode-btn project-mode-btn ${window._quickAddMode==='project'?'active':''}" onclick="window._quickAddMode=(window._quickAddMode==='project'?null:'project');window._projectPick=null;openSlotAssign('${dateStr}','${slotKey}');" title="Projects"><span class="project-mode-label">PROJECTS</span></button>
       </div>
 
       ${window._quickAddMode==='critical' ? `
@@ -3222,7 +3312,7 @@ function openSlotAssign(dateStr, slotKey){
       </div>` : ''}
 
       ${window._quickAddMode==='sprint' ? (()=>{
-        let rawSprintPool = state.tasks.filter(t=> !usedTaskIds.has(t.id) && !carryTaskIds.has(t.id));
+        let rawSprintPool = state.tasks.filter(t=> !isProjectTask(t) && !usedTaskIds.has(t.id) && !carryTaskIds.has(t.id));
         if(isWeekday && !showAll){
           rawSprintPool = rawSprintPool.filter(t=> t.category==='Purchasing' || t.category==='Ezystor');
         }
@@ -3247,6 +3337,8 @@ function openSlotAssign(dateStr, slotKey){
         </div>
       </div>`;
       })() : ''}
+
+      ${window._quickAddMode==='project' ? renderProjectPickerHtml(dateStr, slotKey) : ''}
 
       ${window._quickAddMode ? '' : (()=>{
         let listHtml = `<div class="suggest-list">`;
@@ -3317,6 +3409,8 @@ function assignCarriedToSlot(dateStr, slotKey, idx){
     const t = state.tasks.find(x=>x.id===c.taskId);
     if(t) t.wasRescheduled = true;
   }
+  if(c.projectRef) data.projectRef = c.projectRef;
+  if(c._sourceDate && c._sourceKey) data.carriedFrom = {date:c._sourceDate, key:c._sourceKey, subId:c._sourceSubId||null};
   attemptAssign(dateStr, slotKey, minutes, data);
   // mark the original source as rescheduled (NOT completed - it was never done, just moved)
   // so it doesn't keep reappearing in future pickers, without falsely showing as done
@@ -3436,6 +3530,8 @@ function toggleSubItem(dateStr, slotKey, subId){
   const sub = slot.subItems.find(s=>s.id===subId);
   if(!sub) return;
   sub.completed = !sub.completed;
+  if(sub.completed && sub.carriedFrom){ removeCarriedOriginal(sub.carriedFrom); delete sub.carriedFrom; }
+  if(sub.projectRef) syncProjectSubtaskDone(sub.projectRef, sub.completed);
   if(sub.taskId && sub.completed) completeTask(sub.taskId);
   else if(sub.taskId && !sub.completed) uncompleteTask(sub.taskId);
   saveState(); renderDaily();
@@ -3456,7 +3552,7 @@ function renderMultiSlot(dateStr, gridRowIdx, slotKey, slot){
     const top = cursor*pxPerMin;
     const height = Math.max(10, sub.duration*pxPerMin);
     const task = sub.taskId ? (state.tasks.find(t=>t.id===sub.taskId) || state.archive.find(t=>t.id===sub.taskId)) : null;
-    const name = sub.critical ? sub.name : (sub.taskId ? (task ? task.name : '(deleted task)') : sub.customText);
+    const name = sub.critical ? sub.name : (sub.taskId ? (task ? task.name : '(deleted task)') : (sub.customText || sub.name));
     const doneClass = sub.completed ? ' slot-done' : '';
     const priClass = task ? ' pri-'+computePriority(task) : '';
     const boxClass = sub.critical ? ' urgent-box' : priClass;
@@ -3563,6 +3659,100 @@ function createCriticalTask(dateStr, slotKey){
   attemptAssign(dateStr, slotKey, time, {critical:true, name, time});
 }
 
+// One subtask per row, stacked vertically (no sideways scrolling). items: [{idx,name,minutes,state:'placed'|'open'|'locked',onclick}]
+function subtaskVerticalListHtml(items){
+  return `<div class="subtask-vlist">${items.map(it=>`<div class="subtask-vrow is-${it.state}" ${it.state==='open'?`onclick="${it.onclick}"`:''}>
+      <span class="subtask-vnum">${it.idx}</span>
+      <span class="subtask-vname">${escHtml(it.name)}</span>
+      <span class="subtask-vmeta">${it.state==='placed'?'✓ placed · ':''}${it.minutes}m</span>
+    </div>`).join('')}</div>`;
+}
+function removeProjectSubtaskSlots(subId){
+  Object.values(state.daily||{}).forEach(d=>{
+    Object.keys(d.slots||{}).forEach(k=>{
+      const s = d.slots[k]; if(!s) return;
+      if(s.projectRef && s.projectRef.subtaskId===subId && !s.completed){
+        Object.keys(d.slots).forEach(k2=>{ if(k2===k || (d.slots[k2] && d.slots[k2].occupiedBy===k)) delete d.slots[k2]; });
+      } else if(s.isMulti && s.subItems){
+        s.subItems = s.subItems.filter(x=>!(x.projectRef && x.projectRef.subtaskId===subId && !x.completed));
+        if(s.subItems.length===0) delete d.slots[k];
+      }
+    });
+  });
+}
+function openProjectSubtasksEditor(taskId){
+  const t = state.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  if(!t.subtasks) t.subtasks = [];
+  const sum = t.subtasks.reduce((s,x)=>s+x.minutes,0);
+  document.getElementById('modal-root').innerHTML = `<div class="modal-back" onclick="if(event.target===this) closeModal()"><div class="modal">
+    <h2>${escHtml(t.name)} — Subtasks</h2>
+    <p>Each subtask has its own time. The project's total time is always the sum of its subtasks (currently <strong>${sum}m</strong>).</p>
+    ${t.subtasks.length===0 ? '<p class="assumption-note">No subtasks yet.</p>' : `<table class="subtasks-table"><thead><tr><th>#</th><th>Name</th><th>Time</th><th></th></tr></thead><tbody>
+      ${t.subtasks.map((s,i)=>`<tr><td>${i+1}</td><td>${escHtml(s.name)}${s.completed?' <span class="assumption-note">(done)</span>':(projectSubtaskPlaced(t.id,s.id)?' <span class="assumption-note">(on calendar)</span>':'')}</td><td>${s.minutes}m</td><td><button class="btn btn-small btn-ghost" onclick="removeProjectSubtask('${t.id}','${s.id}')">✕</button></td></tr>`).join('')}
+    </tbody></table>`}
+    <div class="project-add-row" style="margin-top:10px;">
+      <input type="text" id="proj-sub-name" placeholder="Subtask name..."/>
+      <input type="number" id="proj-sub-mins" value="15" step="5" min="5"/>
+      <button class="btn btn-small" onclick="addProjectSubtask('${t.id}')">+ Add</button>
+    </div>
+    <div class="modal-actions"><button class="btn btn-accent btn-small" onclick="closeModal();renderRoster();">Done</button></div>
+  </div></div>`;
+}
+function addProjectSubtask(taskId){
+  const t = state.tasks.find(x=>x.id===taskId); if(!t) return;
+  const name = (document.getElementById('proj-sub-name').value||'').trim();
+  const mins = parseInt(document.getElementById('proj-sub-mins').value)||15;
+  if(!name) return;
+  t.subtasks.push({id:uid(), name, minutes:mins, completed:false});
+  t.time = t.subtasks.reduce((s,x)=>s+x.minutes,0);
+  saveState(); openProjectSubtasksEditor(taskId);
+}
+function removeProjectSubtask(taskId, subId){
+  const t = state.tasks.find(x=>x.id===taskId); if(!t) return;
+  removeProjectSubtaskSlots(subId);
+  t.subtasks = t.subtasks.filter(s=>s.id!==subId);
+  t.time = t.subtasks.reduce((s,x)=>s+x.minutes,0);
+  saveState(); openProjectSubtasksEditor(taskId);
+}
+function renderProjectPickerHtml(dateStr, slotKey){
+  const projects = state.tasks.filter(t=>isProjectTask(t) && (t.subtasks||[]).length>0);
+  const picked = window._projectPick ? projects.find(t=>t.id===window._projectPick) : null;
+  let html = `<div class="project-section"><div class="crit-section-label" style="color:#8fb35a;">Projects</div>`;
+  if(!picked){
+    if(projects.length===0){
+      html += `<div class="empty-state">No projects yet — add one in the Task List by choosing Work Type: Project.</div>`;
+    } else {
+      html += `<div class="suggest-list">${projects.map(t=>{
+        const pColor = PRI_COLOR_VAR[computePriority(t)] || 'var(--line)';
+        const onCal = t.subtasks.filter(s=>projectSubtaskPlaced(t.id,s.id)).length;
+        return `<div class="suggest-item" style="border-left:4px solid ${pColor};" onclick="window._projectPick='${t.id}';openSlotAssign('${dateStr}','${slotKey}')">
+          <div><div class="sname"><span class="subtask-cascade-mark" style="background:${PROJECT_GREEN};color:#fff;">▦</span> ${escHtml(t.name)}</div><div class="smeta">${onCal}/${t.subtasks.length} subtasks on the calendar · ${t.time}m total</div></div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+  } else {
+    const items = picked.subtasks.map((s,i)=>{
+      const placed = projectSubtaskPlaced(picked.id, s.id);
+      const priorAllPlaced = picked.subtasks.slice(0,i).every(p=>projectSubtaskPlaced(picked.id,p.id));
+      return {idx:i+1, name:s.name, minutes:s.minutes, state: placed?'placed':(priorAllPlaced?'open':'locked'),
+              onclick:`assignProjectSubtask('${dateStr}','${slotKey}','${picked.id}','${s.id}')`};
+    });
+    html += `<p class="assumption-note"><a class="project-back-link" onclick="window._projectPick=null;openSlotAssign('${dateStr}','${slotKey}')">◀ All projects</a> &nbsp; <strong>${escHtml(picked.name)}</strong> — a subtask can only go on the calendar once the one before it already is.</p>${subtaskVerticalListHtml(items)}`;
+  }
+  return html + `</div>`;
+}
+function assignProjectSubtask(dateStr, slotKey, taskId, subId){
+  const t = state.tasks.find(x=>x.id===taskId); if(!t) return;
+  const subs = t.subtasks||[];
+  const idx = subs.findIndex(s=>s.id===subId); if(idx<0) return;
+  if(projectSubtaskPlaced(taskId, subId)){ showNotice('Already On The Calendar', 'That subtask is already placed.'); return; }
+  for(let i=0;i<idx;i++){
+    if(!projectSubtaskPlaced(taskId, subs[i].id)){ showNotice('Place Them In Order', `"${subs[i].name}" needs to be on the calendar before this one.`); return; }
+  }
+  const sub = subs[idx];
+  attemptAssign(dateStr, slotKey, sub.minutes, {customText: t.name+': '+sub.name, projectRef:{taskId, subtaskId:subId}});
+}
 function filterSprintTaskList(query){
   const q = query.trim().toLowerCase();
   document.querySelectorAll('.sprint-task-row').forEach(row=>{
@@ -3670,7 +3860,7 @@ function clearDay(dateStr){
   saveState(); closeModal(); renderDaily();
   showToast('Day cleared');
 }
-function closeModal(){ document.getElementById('modal-root').innerHTML=''; window._showAllTasksOverride = false; window._quickAddMode = null; }
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; window._showAllTasksOverride = false; window._quickAddMode = null; window._projectPick = null; }
 
 /* ---- drag & drop (long-press on touch, click-drag on desktop) ---- */
 function startTaskDrag(ev, dateStr, slotKey){
@@ -4354,7 +4544,7 @@ function processOutlookEvents(dateStr, events, opts){
       const spanKeys = spanKeysFrom(snapH, snapM, minutes);
       const hasConflict = spanKeys.length===0 || spanKeys.some(k=>d.slots[k]);
       if(!hasConflict){
-        const data = {customText: ev.title, source:'outlook'};
+        const data = {customText: ev.title, source:'outlook', outlookAuto:true};
         if(matchedBucket==='Meeting') data.outlookMeeting = true;
         writeSpanBlock(dateStr, key, minutes, data);
         autoAdded++;
@@ -4479,7 +4669,7 @@ function addFlaggedEvent(dateStr, i){
 }
 
 /* ================= TASK ROSTER ================= */
-let newTaskDraft = {time:30, priority:'B', category:'Self', workType:'Hack', multiStep:false, due:null};
+let newTaskDraft = {time:30, priority:'B', category:'Self', workType:'Hack', multiStep:false, due:null, subtasks:[]};
 
 function renderRoster(){
   const panel = document.getElementById('panel-roster');
@@ -4523,7 +4713,7 @@ function renderRoster(){
         <div class="tf-field">
           <label>Time Needed</label>
           <div class="slider-wrap">
-            <input type="range" id="new-task-time" min="5" max="240" step="5" value="${newTaskDraft.time}" oninput="document.getElementById('slider-val-display').textContent=this.value+' min'"/>
+            <input type="range" id="new-task-time" min="5" max="240" step="5" value="${newTaskDraft.time}" oninput="document.getElementById('slider-val-display').textContent=this.value+' min';updateProjectDraftTotals()"/>
             <span class="slider-val" id="slider-val-display">${newTaskDraft.time} min</span>
           </div>
         </div>
@@ -4532,6 +4722,7 @@ function renderRoster(){
           <span><span class="lbl">Multi-step task</span><br/><span class="hint">Completing it will prompt you to create a follow-up task</span></span>
         </label>
       </div>
+      <div id="new-task-project-box" class="project-box" style="display:none;"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;">
         <button class="btn btn-ghost" onclick="openBulkImportModal()">📥 Import Multiple</button>
         <button class="btn btn-accent" onclick="addTask()">+ Add to List</button>
@@ -4585,8 +4776,10 @@ function renderRoster(){
     const catCell = editingThis('category')
       ? `<select autofocus onchange="saveInlineEdit('${t.id}','category',this.value)" onblur="cancelInlineEditBlur()">${CATS.map(c=>`<option value="${c}" ${t.category===c?'selected':''}>${CAT_LABEL[c]}</option>`).join('')}</select>`
       : `<span class="badge badge-cat editable-cell" title="Click to edit" onclick="startInlineEdit('${t.id}','category')">${CAT_LABEL[t.category]}</span>`;
-    const wtCell = editingThis('workType')
-      ? `<select autofocus onchange="saveInlineEdit('${t.id}','workType',this.value)" onblur="cancelInlineEditBlur()">${WORK_TYPES.map(wt=>`<option value="${wt}" ${t.workType===wt?'selected':''}>${WT_LABEL[wt]}</option>`).join('')}</select>`
+    const wtCell = isProjectTask(t)
+      ? `<span class="badge badge-project" title="Projects are split into subtasks and placed from the PROJECTS button">Project</span>`
+      : editingThis('workType')
+      ? `<select autofocus onchange="saveInlineEdit('${t.id}','workType',this.value)" onblur="cancelInlineEditBlur()">${WORK_TYPES.filter(w=>w!=='Project').map(wt=>`<option value="${wt}" ${t.workType===wt?'selected':''}>${WT_LABEL[wt]}</option>`).join('')}</select>`
       : `<span class="badge badge-cat editable-cell" title="Click to edit" onclick="startInlineEdit('${t.id}','workType')">${WT_LABEL[t.workType]||'—'}</span>`;
     const timeCell = editingThis('time')
       ? `<input autofocus type="number" style="width:60px;" value="${t.time}" onchange="saveInlineEdit('${t.id}','time',this.value)" onblur="cancelInlineEditBlur()"/>`
@@ -4596,7 +4789,7 @@ function renderRoster(){
       : `<span class="editable-cell" title="Click to edit" onclick="startInlineEdit('${t.id}','dueDate')">${fmtDMY(t.dueDate)}${overdue?' (OVERDUE)':''}</span>`;
     html += `<tr>
       <td>${taskBadgeHtml(t)}</td>
-      <td class="task-name-cell">${escHtml(t.name)}</td>
+      <td class="task-name-cell">${escHtml(t.name)}${isProjectTask(t)?` <span class="project-progress">▦ ${(t.subtasks||[]).filter(s=>s.completed).length}/${(t.subtasks||[]).length} subtasks</span> <span class="project-edit-link" onclick="openProjectSubtasksEditor('${t.id}')">edit</span>`:''}</td>
       <td>${catCell}</td>
       <td>${wtCell}</td>
       <td>${timeCell}</td>
@@ -4615,6 +4808,7 @@ function renderRoster(){
   const hadFocus = document.activeElement && document.activeElement.id==='task-search-input';
   const caretPos = hadFocus ? document.activeElement.selectionStart : null;
   panel.innerHTML = html;
+  renderProjectDraftBox();
   if(hadFocus){
     const el = document.getElementById('task-search-input');
     if(el){ el.focus(); el.setSelectionRange(caretPos, caretPos); }
@@ -4668,6 +4862,51 @@ function setDraftWorkType(wt){
   newTaskDraft.workType = wt;
   const row = document.getElementById('new-task-wt-row');
   if(row) row.querySelectorAll('.wt-opt').forEach(el=>el.classList.toggle('active', el.dataset.val===wt));
+  renderProjectDraftBox(); // shows the subtasks box only for Project, hides it again for anything else
+}
+function projectDraftTotal(){
+  const el = document.getElementById('new-task-time');
+  return (el ? parseInt(el.value) : newTaskDraft.time) || 30;
+}
+function projectTotalsHtml(subs, total){
+  const sum = subs.reduce((s,x)=>s+x.minutes,0), diff = total-sum;
+  const color = diff===0 ? 'var(--green-ok)' : (diff>0 ? 'var(--amber)' : 'var(--red)');
+  const label = diff===0 ? 'matches the total' : diff>0 ? `${diff}m still to allocate` : `${-diff}m over the total`;
+  return `<span style="color:${color};font-weight:700;">${sum}m of ${total}m allocated — ${label}</span>`;
+}
+function updateProjectDraftTotals(){
+  const el = document.getElementById('new-sub-total');
+  if(el) el.innerHTML = projectTotalsHtml(newTaskDraft.subtasks||[], projectDraftTotal());
+}
+function renderProjectDraftBox(){
+  const box = document.getElementById('new-task-project-box');
+  if(!box) return;
+  if(newTaskDraft.workType!=='Project'){ box.style.display='none'; box.innerHTML=''; return; }
+  const subs = newTaskDraft.subtasks || (newTaskDraft.subtasks=[]);
+  box.style.display = 'block';
+  box.innerHTML = `<label>Project Subtasks — split the project into pieces, each with its own time. They must add up to the Time Needed above.</label>
+    ${subs.length===0 ? '<p class="assumption-note">No subtasks yet.</p>' : `<table class="subtasks-table"><thead><tr><th>#</th><th>Name</th><th>Time</th><th></th></tr></thead><tbody>
+      ${subs.map((s,i)=>`<tr><td>${i+1}</td><td>${escHtml(s.name)}</td><td>${s.minutes}m</td><td><button type="button" class="btn btn-small btn-ghost" onclick="removeDraftSubtask('${s.id}')">✕</button></td></tr>`).join('')}
+    </tbody></table>`}
+    <div class="project-add-row">
+      <input type="text" id="new-sub-name" placeholder="Subtask name..."/>
+      <input type="number" id="new-sub-mins" value="15" step="5" min="5"/>
+      <button type="button" class="btn btn-small" onclick="addDraftSubtask()">+ Add</button>
+    </div>
+    <p class="assumption-note" id="new-sub-total">${projectTotalsHtml(subs, projectDraftTotal())}</p>`;
+}
+function addDraftSubtask(){
+  const name = (document.getElementById('new-sub-name').value||'').trim();
+  const mins = parseInt(document.getElementById('new-sub-mins').value)||15;
+  if(!name) return;
+  if(!newTaskDraft.subtasks) newTaskDraft.subtasks = [];
+  newTaskDraft.subtasks.push({id:uid(), name, minutes:mins});
+  renderProjectDraftBox();
+  const n = document.getElementById('new-sub-name'); if(n) n.focus();
+}
+function removeDraftSubtask(id){
+  newTaskDraft.subtasks = (newTaskDraft.subtasks||[]).filter(s=>s.id!==id);
+  renderProjectDraftBox();
 }
 
 function addTask(){
@@ -4678,8 +4917,16 @@ function addTask(){
   const pri = newTaskDraft.priority;
   const wt = newTaskDraft.workType;
   if(!name) return;
+  let subtasks = null;
+  if(wt==='Project'){
+    const subs = newTaskDraft.subtasks||[];
+    const sum = subs.reduce((s,x)=>s+x.minutes,0);
+    if(subs.length===0){ showNotice('Add Subtasks First', 'A project needs at least one subtask. Add them in the Project Subtasks box.'); return; }
+    if(sum!==time){ showNotice('Subtasks Must Match the Total', `Your subtasks add up to ${sum}m but the project's Time Needed is ${time}m. ${sum<time?'Add '+(time-sum)+'m more of subtasks':'Remove '+(sum-time)+'m of subtasks'}, or change the Time Needed, so they match exactly.`); return; }
+    subtasks = subs.map(s=>({id:s.id, name:s.name, minutes:s.minutes, completed:false}));
+  }
   if(pri==='U'){
-    finalizeAddTask({name, cat, wt, time, due:todayISO(), multi, pri});
+    finalizeAddTask({name, cat, wt, time, due:todayISO(), multi, pri, subtasks});
     return;
   }
   let due = document.getElementById('new-task-due-hidden').value || null;
@@ -4688,11 +4935,11 @@ function addTask(){
   }
   const v = validatePriorityDate(pri, due);
   if(!v.ok){
-    window._pendingTaskAdd = {name, cat, wt, time, due, multi, pri};
+    window._pendingTaskAdd = {name, cat, wt, time, due, multi, pri, subtasks};
     showPriorityDateConflictModal(v, 'add');
     return;
   }
-  finalizeAddTask({name, cat, wt, time, due, multi, pri});
+  finalizeAddTask({name, cat, wt, time, due, multi, pri, subtasks});
 }
 function openBulkImportModal(){
   document.getElementById('modal-root').innerHTML = `<div class="modal-back" onclick="if(event.target===this) closeModal()">
@@ -4723,7 +4970,7 @@ function matchWorkTypeInput(val){
   if(!val) return null;
   const v = String(val).trim().toLowerCase();
   if(!v) return null;
-  for(const wt of WORK_TYPES){ if(wt.toLowerCase()===v || WT_LABEL[wt].toLowerCase()===v) return wt; }
+  for(const wt of WORK_TYPES.filter(w=>w!=='Project')){ if(wt.toLowerCase()===v || WT_LABEL[wt].toLowerCase()===v) return wt; }
   return null;
 }
 function matchPriorityInput(val){
@@ -4820,8 +5067,10 @@ function doBulkImportTasks(){
 }
 
 function finalizeAddTask(data){
-  state.tasks.push({ id:uid(), name:data.name, category:data.cat, workType:data.wt, time:data.time, multiStep:data.multi, dueDate:data.due, priority:data.pri, created:todayISO() });
-  newTaskDraft = {time:data.time, priority:data.pri, category:data.cat, workType:data.wt, multiStep:false, due:data.due};
+  const newTask = { id:uid(), name:data.name, category:data.cat, workType:data.wt, time:data.time, multiStep:data.multi, dueDate:data.due, priority:data.pri, created:todayISO() };
+  if(data.wt==='Project' && data.subtasks) newTask.subtasks = data.subtasks;
+  state.tasks.push(newTask);
+  newTaskDraft = {time:data.time, priority:data.pri, category:data.cat, workType:data.wt, multiStep:false, due:data.due, subtasks:[]};
   saveState(); renderRoster();
   showToast(data.pri==='U' ? 'Very urgent task added — due today' : 'Task added to list');
 }
@@ -4945,7 +5194,7 @@ function promptFollowUp(prevTask){
         ${['A','B','C','D'].map(p=>`<option value="${p}" ${prevTask.priority===p?'selected':''}>${p}</option>`).join('')}
       </select></div>
       <div class="field-row"><label>Work Type</label><select id="fu-wt">
-        ${WORK_TYPES.map(wt=>`<option value="${wt}" ${prevTask.workType===wt?'selected':''}>${WT_LABEL[wt]}</option>`).join('')}
+        ${WORK_TYPES.filter(w=>w!=='Project').map(wt=>`<option value="${wt}" ${prevTask.workType===wt?'selected':''}>${WT_LABEL[wt]}</option>`).join('')}
       </select></div>
       <div class="field-row"><label>Time (min)</label><input id="fu-time" type="number" value="${prevTask.time}"/></div>
       <div class="field-row"><label>Due date</label><input id="fu-due" type="date" value="${escAttr(defaultDue)}" onclick="try{this.showPicker()}catch(e){}"/></div>
@@ -5019,13 +5268,13 @@ function openEditTaskModal(id){
       <div class="field-row"><label>Role Category</label><select id="edit-cat">
         ${CATS.map(c=>`<option value="${c}" ${t.category===c?'selected':''}>${CAT_LABEL[c]}</option>`).join('')}
       </select></div>
-      <div class="field-row"><label>Work Type</label><select id="edit-wt">
-        ${WORK_TYPES.map(wt=>`<option value="${wt}" ${t.workType===wt?'selected':''}>${WT_LABEL[wt]}</option>`).join('')}
+      <div class="field-row"><label>Work Type</label><select id="edit-wt" ${isProjectTask(t)?'disabled':''}>
+        ${(isProjectTask(t)?WORK_TYPES:WORK_TYPES.filter(w=>w!=='Project')).map(wt=>`<option value="${wt}" ${t.workType===wt?'selected':''}>${WT_LABEL[wt]}</option>`).join('')}
       </select></div>
       <div class="field-row"><label>Priority</label><select id="edit-pri">
         ${['A','B','C','D'].map(p=>`<option value="${p}" ${t.priority===p?'selected':''}>${p}</option>`).join('')}
       </select></div>
-      <div class="field-row"><label>Time (min)</label><input id="edit-time" type="number" value="${t.time}"/></div>
+      <div class="field-row"><label>Time (min)</label><input id="edit-time" type="number" value="${t.time}" ${isProjectTask(t)?'readonly title="A project\'s time is the total of its subtasks"':''}/>${isProjectTask(t)?'<span class="assumption-note">Set automatically from the subtasks below.</span>':''}</div>
       <div class="field-row"><label>Due date</label>
         <div class="due-date-wrap">
           <input type="text" id="edit-due-text" value="${escAttr(fmtDMY(t.dueDate))}" placeholder="e.g. 6/08 or 6th August" onchange="syncDueDateFromText('edit')"/>
@@ -5035,6 +5284,7 @@ function openEditTaskModal(id){
       </div>
       <label class="multistep-toggle" style="margin-bottom:10px;"><input type="checkbox" id="edit-multi" ${t.multiStep?'checked':''}/> <span class="lbl">Multi-step task</span></label>
       <div class="modal-actions">
+        ${isProjectTask(t)?`<button class="btn btn-small" onclick="openProjectSubtasksEditor('${id}')">Edit Subtasks</button>`:''}
         <button class="btn btn-ghost btn-small" onclick="closeModal()">Cancel</button>
         <button class="btn btn-accent btn-small" onclick="saveEditTask('${id}')">Save Changes</button>
       </div>
@@ -5143,10 +5393,8 @@ function computeDayCompletion(dateStr){
     return {total:fixedTotal, done};
   }
   const am = countRange(4,12,360);
-  const pm = countRange(13,20,240);
-  (dObj.fieldLedgerEveningItems||[]).forEach(item=>{
-    if(item.completed) pm.done += (item.duration||5);
-  });
+  // PM stops at 19:59 - the 8-9pm block (hour 20, which also holds the Field Ledger evening items) is deliberately excluded
+  const pm = countRange(13,19,240);
   return {amDone:Math.round(am.done), amTotal:am.total, pmDone:Math.round(pm.done), pmTotal:pm.total};
 }
 
@@ -5531,7 +5779,7 @@ function findOverdueTasks(){
           const end = new Date(start.getTime()+sub.duration*60000);
           if(now>=end){
             const task = sub.taskId ? (state.tasks.find(t=>t.id===sub.taskId) || state.archive.find(t=>t.id===sub.taskId)) : null;
-            const name = sub.critical ? sub.name : (sub.taskId ? (task ? task.name : '(deleted task)') : sub.customText);
+            const name = sub.critical ? sub.name : (sub.taskId ? (task ? task.name : '(deleted task)') : (sub.customText || sub.name));
             overdue.push({key, subId:sub.id, isMulti:true, name, end});
           }
         }
@@ -5768,7 +6016,7 @@ function renderOverlay(){
       <button class="btn btn-accent btn-small" style="width:100%;margin-top:6px;" data-action="ov-submit-task">+ Add Task</button>
     </div>
   `;
-  body.innerHTML = `
+  const ovHtml = `
     <div class="ov-focus-block">
       <div class="ov-row"><div class="ov-focus-header"><div class="ov-label">▸ Working On Now</div><div class="ov-tick ${cur && cur.slot && cur.slot.completed ? 'is-done' : ''}" id="ov-focus-tick">✓</div></div><div class="ov-task">${escHtml(taskName)}</div>
       <div class="ov-meta-row"><div class="ov-label">${escHtml(meta)}</div>${minutesLeftHtml}</div></div>
@@ -5779,6 +6027,12 @@ function renderOverlay(){
     ${hazardHtml}
     ${addTaskHtml}
   `;
+  // CPU: the 15s timer calls this constantly - only touch the DOM when something actually changed
+  const draftNow = window._overlayTaskDraft;
+  const nameFieldOutOfSync = !!(nameInput && draftNow && nameInput.value !== (draftNow.name||''));
+  if(body._lastOvHtml === ovHtml && !nameFieldOutOfSync) return;
+  body._lastOvHtml = ovHtml;
+  body.innerHTML = ovHtml;
   if(hadFocus){
     const newInput = doc.getElementById('ov-task-name');
     if(newInput){ newInput.focus(); if(caretPos!==null) newInput.setSelectionRange(caretPos, caretPos); }
@@ -6171,6 +6425,27 @@ function showNextDayPlanPrompt(nextDay){
   </div>`;
   document.getElementById('modal-root').innerHTML = html;
 }
+// A past slot/sub-item that autoRelease cut loose from the Task List: work out which live task it really was
+function releasedTaskLink(s){
+  if(!s.released) return {taskId:null, done:false};
+  if(s.releasedTaskId){
+    if(state.archive.some(t=>t.id===s.releasedTaskId)) return {taskId:null, done:true}; // finished elsewhere already
+    if(state.tasks.some(t=>t.id===s.releasedTaskId)) return {taskId:s.releasedTaskId, done:false};
+    return {taskId:null, done:false};
+  }
+  // released before the id was recorded: relink only when exactly one live task has that exact name
+  const label = s.customText || s.name;
+  if(label){
+    const matches = state.tasks.filter(t=>t.name===label);
+    if(matches.length===1) return {taskId:matches[0].id, done:false};
+  }
+  return {taskId:null, done:false};
+}
+function outlookNeverReschedules(s){
+  // recurring approved items (OOS/PSOs, Unconfirmed, Overdue Lines, Purchasing run/inbox, Personal inbox, Plan, Learning, Lunch...) and ALL meetings
+  if(s.outlookAuto || s.outlookMeeting) return true;
+  return !!isOutlookAutoCategory({title:s.customText});
+}
 function findCarryForwardCandidates(targetDateStr){
   const target = new Date(targetDateStr+'T00:00:00');
   const prev = new Date(target); prev.setDate(prev.getDate()-1);
@@ -6183,7 +6458,8 @@ function findCarryForwardCandidates(targetDateStr){
   Object.keys(d.slots).forEach(k=>{
     const s = d.slots[k];
     if(!s || s.occupiedBy) return;
-    if(s.source==='default' || s.source==='outlook' || s.source==='weeklygoal') return; // fixed blocks aren't tasks; Outlook items refresh themselves; weekly goals are handled at the weekly-planning level, not daily
+    if(s.source==='default' || s.source==='weeklygoal') return; // fixed blocks aren't tasks; weekly goals are handled at the weekly-planning level, not daily
+    if(s.source==='outlook' && outlookNeverReschedules(s)) return; // only one-off, manually approved Outlook items get rescheduled
     if(s.promotedToTaskList) return; // already carried over as a genuine Task List entry, don't also show it here
     const parts = k.split('_');
     const h = parseInt(parts[0].slice(1)), m = parseInt(parts[1]);
@@ -6197,7 +6473,14 @@ function findCarryForwardCandidates(targetDateStr){
             const subEnd = new Date(subStart.getTime()+sub.duration*60000);
             if(now<subEnd) skip = true; // hasn't happened yet tonight, not actually missed
           }
-          if(!skip) missed.push(Object.assign({time:sub.duration, _sourceDate:prevStr, _sourceKey:k, _sourceSubId:sub.id}, sub));
+          const subLink = releasedTaskLink(sub);
+          if(subLink.done) skip = true;
+          if(!skip){
+            const cand = Object.assign({time:sub.duration, _sourceDate:prevStr, _sourceKey:k, _sourceSubId:sub.id}, sub);
+            if(subLink.taskId) cand.taskId = subLink.taskId;
+            if(!cand.customText && cand.name) cand.customText = cand.name;
+            missed.push(cand);
+          }
         }
         cursor += sub.duration;
       });
@@ -6211,7 +6494,11 @@ function findCarryForwardCandidates(targetDateStr){
       const slotEnd = new Date(slotStart.getTime()+minutes*60000);
       if(now<slotEnd) return; // still ahead tonight, not actually missed yet
     }
-    missed.push(Object.assign({_sourceDate:prevStr, _sourceKey:k}, s));
+    const link = releasedTaskLink(s);
+    if(link.done) return;
+    const cand = Object.assign({_sourceDate:prevStr, _sourceKey:k}, s);
+    if(link.taskId) cand.taskId = link.taskId;
+    missed.push(cand);
   });
   return missed;
 }
@@ -6604,7 +6891,7 @@ function checkMissedTasksCarryover(){
 function missedTaskName(s){
   if(s.critical) return s.name;
   if(s.taskId){ const t = state.tasks.find(x=>x.id===s.taskId) || state.archive.find(x=>x.id===s.taskId); return t ? t.name : '(task removed)'; }
-  return s.customText || 'item';
+  return s.customText || s.name || 'item';
 }
 
 function showMissedTasksModal(missed){
@@ -6715,10 +7002,13 @@ async function init(){
   setupOverlayActions();
   checkForAppUpdates();
   checkNextDayPlanStatus();
+  document.addEventListener('visibilitychange', ()=>{ document.body.classList.toggle('page-hidden', document.hidden); });
+  document.body.classList.toggle('page-hidden', document.hidden);
   setInterval(()=>{ renderClock(); renderOverlay(); checkReminder(); checkWeeklyPlanReminder(); checkFieldLedgerScheduledSync(); checkNextDayPlanStatus(); }, 15000);
   renderClock(); renderOverlay(); checkReminder(); checkWeeklyPlanReminder(); checkFieldLedgerScheduledSync();
 }
 document.addEventListener('DOMContentLoaded', init);
+
 
 
 
