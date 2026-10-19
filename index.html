@@ -1053,17 +1053,48 @@ const PROJECT_GREEN = '#3d5226';
 function isProjectTask(t){ return !!t && t.workType==='Project'; }
 // A project subtask counts as 'on the calendar' if any live (not moved-on) slot or sub-item carries it, or it's already done.
 // Derived straight from the calendar, so deleting / moving / resizing a slot can never leave it out of sync.
-function projectSubtaskPlaced(taskId, subId){
-  for(const d of Object.values(state.daily||{})){
+function projectSubtaskPlaced(taskId, subId, viewDate){
+  // 'On the calendar' means a live slot on the day being planned or later. An uncompleted slot on an EARLIER day was
+  // missed, so the subtask is free to be chosen again (and the next one stays locked until it is).
+  viewDate = viewDate || todayISO();
+  const t0 = state.tasks.find(x=>x.id===taskId) || state.archive.find(x=>x.id===taskId);
+  const st0 = t0 && (t0.subtasks||[]).find(x=>x.id===subId);
+  if(st0 && st0.completed) return true;
+  for(const [dateKey, d] of Object.entries(state.daily||{})){
+    if(dateKey < viewDate) continue;
     for(const s of Object.values(d.slots||{})){
       if(!s) continue;
       if(s.projectRef && s.projectRef.subtaskId===subId && !s.rescheduled) return true;
       if(s.isMulti && s.subItems && s.subItems.some(x=>x.projectRef && x.projectRef.subtaskId===subId && !x.rescheduled)) return true;
     }
   }
-  const t = state.tasks.find(x=>x.id===taskId) || state.archive.find(x=>x.id===taskId);
-  const st = t && (t.subtasks||[]).find(x=>x.id===subId);
-  return !!(st && st.completed);
+  return false;
+}
+// The most recent earlier day this subtask was scheduled but never completed (null if it wasn't missed)
+function projectSubtaskMissedOn(taskId, subId, viewDate){
+  viewDate = viewDate || todayISO();
+  let latest = null;
+  for(const [dateKey, d] of Object.entries(state.daily||{})){
+    if(dateKey >= viewDate) continue;
+    for(const s of Object.values(d.slots||{})){
+      if(!s) continue;
+      const hit = (s.projectRef && s.projectRef.subtaskId===subId && !s.rescheduled && !s.completed)
+        || (s.isMulti && s.subItems && s.subItems.some(x=>x.projectRef && x.projectRef.subtaskId===subId && !x.rescheduled && !x.completed));
+      if(hit && (!latest || dateKey>latest)) latest = dateKey;
+    }
+  }
+  return latest;
+}
+// Once a missed subtask is chosen again, the old missed entry is marked handled (same convention as rescheduled items)
+function markMissedProjectSubtaskHandled(subId, beforeDate){
+  Object.entries(state.daily||{}).forEach(([dateKey, d])=>{
+    if(dateKey >= beforeDate) return;
+    Object.values(d.slots||{}).forEach(s=>{
+      if(!s) return;
+      if(s.projectRef && s.projectRef.subtaskId===subId && !s.completed) s.rescheduled = true;
+      if(s.isMulti && s.subItems) s.subItems.forEach(x=>{ if(x.projectRef && x.projectRef.subtaskId===subId && !x.completed) x.rescheduled = true; });
+    });
+  });
 }
 function syncProjectSubtaskDone(ref, val){
   if(!ref) return;
@@ -1072,6 +1103,7 @@ function syncProjectSubtaskDone(ref, val){
   const sub = (t.subtasks||[]).find(s=>s.id===ref.subtaskId);
   if(!sub) return;
   sub.completed = !!val;
+  if(val) removeProjectSubtaskSlots(ref.subtaskId); // drops any leftover missed copy; the one just completed is kept
   const allDone = t.subtasks.length>0 && t.subtasks.every(s=>s.completed);
   const inActive = state.tasks.some(x=>x.id===t.id);
   if(allDone && inActive) completeTask(t.id);          // last subtask done -> the whole project is done on the Task List
@@ -2500,38 +2532,6 @@ function autoReleaseUncompletedLinkedTasks(dateStr){
   if(released) saveState();
 }
 
-function autoPromoteUncompletedCriticalTasks(dateStr){
-  const target = new Date(dateStr+'T00:00:00');
-  const prev = new Date(target); prev.setDate(prev.getDate()-1);
-  const prevStr = prev.getFullYear()+'-'+String(prev.getMonth()+1).padStart(2,'0')+'-'+String(prev.getDate()).padStart(2,'0');
-  const d = state.daily[prevStr];
-  if(!d || !d.slots) return;
-  const isPrevToday = prevStr === todayISO();
-  const now = new Date();
-  let promoted = 0;
-  Object.keys(d.slots).forEach(k=>{
-    const s = d.slots[k];
-    if(!s || s.occupiedBy) return;
-    if(!s.critical || s.completed || s.promotedToTaskList || s.rescheduled) return;
-    if(isPrevToday){
-      const parts = k.split('_');
-      const h = parseInt(parts[0].slice(1)), m = parseInt(parts[1]);
-      const minutes = s.span ? s.span*15 : (s.time||15);
-      const slotStart = new Date(prevStr+'T00:00:00'); slotStart.setHours(h,m,0,0);
-      const slotEnd = new Date(slotStart.getTime()+minutes*60000);
-      if(now<slotEnd) return; // still ahead tonight, hasn't actually been missed yet
-    }
-    s.promotedToTaskList = true;
-    state.tasks.push({
-      id: uid(), name: s.name, category:'Self', workType:'Hack',
-      time: s.time||15, multiStep:false, dueDate: prevStr, priority:'U',
-      created: todayISO()
-    });
-    promoted++;
-  });
-  if(promoted>0) saveState();
-}
-
 function renderDaily(){
   const panel = document.getElementById('panel-daily');
   const dateStr = currentDateForDaily() || todayISO();
@@ -2541,7 +2541,6 @@ function renderDaily(){
   const dObj = ensureDaily(dateStr);
   cleanupOrphanedSlots(dObj);
   autoReleaseUncompletedLinkedTasks(dateStr);
-  autoPromoteUncompletedCriticalTasks(dateStr);
   seedDailyDefaults(dateStr);
   reconcileHouseReviewCollisions(dateStr, dayIdx);
   injectWeeklyGoals(dateStr, dayIdx);
@@ -3713,7 +3712,7 @@ function subtaskVerticalListHtml(items){
   return `<div class="subtask-vlist">${items.map(it=>`<div class="subtask-vrow is-${it.state}" ${it.state==='open'?`onclick="${it.onclick}"`:''}>
       <span class="subtask-vnum">${it.idx}</span>
       <span class="subtask-vname">${escHtml(it.name)}</span>
-      <span class="subtask-vmeta">${it.state==='placed'?'✓ placed · ':''}${it.minutes}m</span>
+      <span class="subtask-vmeta">${it.state==='placed'?'✓ placed · ':''}${it.note?it.note+' · ':''}${it.minutes}m</span>
     </div>`).join('')}</div>`;
 }
 function removeProjectSubtaskSlots(subId){
@@ -3812,7 +3811,7 @@ function renderProjectPickerHtml(dateStr, slotKey){
     } else {
       html += `<div class="suggest-list">${projects.map(t=>{
         const pColor = PRI_COLOR_VAR[computePriority(t)] || 'var(--line)';
-        const onCal = t.subtasks.filter(s=>projectSubtaskPlaced(t.id,s.id)).length;
+        const onCal = t.subtasks.filter(s=>projectSubtaskPlaced(t.id,s.id,dateStr)).length;
         return `<div class="suggest-item" style="border-left:4px solid ${pColor};" onclick="window._projectPick='${t.id}';openSlotAssign('${dateStr}','${slotKey}')">
           <div><div class="sname"><span class="subtask-cascade-mark" style="background:${PROJECT_GREEN};color:#fff;">▦</span> ${escHtml(t.name)}</div><div class="smeta">${onCal}/${t.subtasks.length} subtasks on the calendar · ${t.time}m total</div></div>
         </div>`;
@@ -3820,9 +3819,11 @@ function renderProjectPickerHtml(dateStr, slotKey){
     }
   } else {
     const items = picked.subtasks.map((s,i)=>{
-      const placed = projectSubtaskPlaced(picked.id, s.id);
-      const priorAllPlaced = picked.subtasks.slice(0,i).every(p=>projectSubtaskPlaced(picked.id,p.id));
+      const placed = projectSubtaskPlaced(picked.id, s.id, dateStr);
+      const priorAllPlaced = picked.subtasks.slice(0,i).every(p=>projectSubtaskPlaced(picked.id,p.id,dateStr));
+      const missedOn = placed ? null : projectSubtaskMissedOn(picked.id, s.id, dateStr);
       return {idx:i+1, name:s.name, minutes:s.minutes, state: placed?'placed':(priorAllPlaced?'open':'locked'),
+              note: missedOn ? '↻ missed '+fmtDMShort(missedOn) : '',
               onclick:`assignProjectSubtask('${dateStr}','${slotKey}','${picked.id}','${s.id}')`};
     });
     html += `<p class="assumption-note"><a class="project-back-link" onclick="window._projectPick=null;openSlotAssign('${dateStr}','${slotKey}')">◀ All projects</a> &nbsp; <strong>${escHtml(picked.name)}</strong> — a subtask can only go on the calendar once the one before it already is.</p>${subtaskVerticalListHtml(items)}`;
@@ -3833,11 +3834,12 @@ function assignProjectSubtask(dateStr, slotKey, taskId, subId){
   const t = state.tasks.find(x=>x.id===taskId); if(!t) return;
   const subs = t.subtasks||[];
   const idx = subs.findIndex(s=>s.id===subId); if(idx<0) return;
-  if(projectSubtaskPlaced(taskId, subId)){ showNotice('Already On The Calendar', 'That subtask is already placed.'); return; }
+  if(projectSubtaskPlaced(taskId, subId, dateStr)){ showNotice('Already On The Calendar', 'That subtask is already placed.'); return; }
   for(let i=0;i<idx;i++){
-    if(!projectSubtaskPlaced(taskId, subs[i].id)){ showNotice('Place Them In Order', `"${subs[i].name}" needs to be on the calendar before this one.`); return; }
+    if(!projectSubtaskPlaced(taskId, subs[i].id, dateStr)){ showNotice('Place Them In Order', `"${subs[i].name}" needs to be on the calendar before this one.`); return; }
   }
   const sub = subs[idx];
+  markMissedProjectSubtaskHandled(subId, dateStr);
   attemptAssign(dateStr, slotKey, sub.minutes, {customText: t.name+': '+sub.name, projectRef:{taskId, subtaskId:subId}});
 }
 function filterSprintTaskList(query){
@@ -6572,12 +6574,13 @@ function findCarryForwardCandidates(targetDateStr){
     if(s.source==='default' || s.source==='weeklygoal') return; // fixed blocks aren't tasks; weekly goals are handled at the weekly-planning level, not daily
     if(s.source==='outlook' && outlookNeverReschedules(s)) return; // only one-off, manually approved Outlook items get rescheduled
     if(s.promotedToTaskList) return; // already carried over as a genuine Task List entry, don't also show it here
+    if(s.projectRef) return; // a missed project subtask comes back through the PROJECTS button instead, never twice
     const parts = k.split('_');
     const h = parseInt(parts[0].slice(1)), m = parseInt(parts[1]);
     if(s.isMulti){
       let cursor = 0;
       s.subItems.forEach(sub=>{
-        if(!sub.completed && !sub.rescheduled){
+        if(!sub.completed && !sub.rescheduled && !sub.projectRef){
           let skip = false;
           if(isPrevToday){
             const subStart = new Date(prevStr+'T00:00:00'); subStart.setHours(h, m+cursor, 0, 0);
