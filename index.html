@@ -831,6 +831,7 @@ input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;}
 .field-row{margin-bottom:12px;}
 .field-row label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-dim);margin-bottom:5px;}
 .field-row input,.field-row select{width:100%;padding:9px;background:var(--bg-0);border:1px solid var(--line);color:var(--text);font-size:13px;}
+.field-row textarea{width:100%;box-sizing:border-box;padding:9px;background:var(--bg-0);border:1px solid var(--line);color:var(--text);font-size:13px;font-family:inherit;line-height:1.45;resize:vertical;}
 
 .assumption-note{font-size:11px;color:var(--text-dim);font-style:italic;margin-top:8px;}
 .settings-reminder-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
@@ -973,6 +974,30 @@ body[data-theme="light-sand"]{ --body-overlay: rgba(245,240,230,.92); }
 .subtask-editing-row td{background:rgba(242,169,0,.08);}
 .subtasks-table .btn-small{padding:2px 7px;}
 
+/* ---- daily mission statement gate ---- */
+.mission-gate{
+  position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(8,10,14,.86);
+}
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .mission-gate{background:rgba(8,10,14,.5);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);}
+}
+.mission-box{
+  width:min(430px,92vw);max-height:92vh;overflow-y:auto;box-sizing:border-box;
+  background:var(--bg-1);border:1px solid var(--amber);box-shadow:0 14px 60px rgba(0,0,0,.8);padding:20px 22px;
+}
+.mission-kicker{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-family:var(--font-mono);margin-bottom:4px;}
+.mission-box h2{font-family:var(--font-head);text-transform:uppercase;letter-spacing:2px;color:var(--text);margin:0 0 6px;font-size:16px;}
+.mission-box p{font-size:12.5px;line-height:1.4;color:var(--text-dim);margin:0 0 10px;}
+.mission-box textarea{
+  width:100%;box-sizing:border-box;min-height:84px;resize:vertical;padding:10px 12px;
+  background:var(--bg-0);color:var(--text);border:1px solid var(--line);
+  font-family:inherit;font-size:15px;line-height:1.45;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;
+}
+.mission-box textarea:focus{outline:none;border-color:var(--amber);}
+.mission-msg{min-height:16px;margin-top:6px;font-size:12px;line-height:1.4;color:var(--red);}
+.mission-actions{display:flex;justify-content:flex-end;margin-top:8px;}
+
 </style>
 </head>
 <body>
@@ -1050,6 +1075,7 @@ const CAT_LABEL = {'':'—', Self:'Self', Purchasing:'Purchasing', Ezystor:'Ezys
 const WORK_TYPES = ['Hack','Proactive','General','Project'];
 const WT_LABEL = {Hack:'Hack work', Proactive:'Proactive work', General:'General', Project:'Project'};
 const PROJECT_GREEN = '#3d5226';
+const DEFAULT_MISSION = 'I am someone who is disciplined, who is continuously growing and always looking to build trust.';
 function isProjectTask(t){ return !!t && t.workType==='Project'; }
 // A project subtask counts as 'on the calendar' if any live (not moved-on) slot or sub-item carries it, or it's already done.
 // Derived straight from the calendar, so deleting / moving / resizing a slot can never leave it out of sync.
@@ -1803,6 +1829,8 @@ function defaultState(){
     seeded:false,
     tabOrder: DEFAULT_TAB_ORDER.slice(),
     settings: {
+      missionStatement: DEFAULT_MISSION,
+      lastMissionDate: null,
       email: '',
       theme: 'dark',
       msClientId: '',
@@ -1915,6 +1943,8 @@ async function loadState(){
   if(!state.settings.priorityDays) state.settings.priorityDays = {A:7, B:14, C:21, D:28};
   if(!state.settings.morningRoutineMinutes) state.settings.morningRoutineMinutes = 150;
   if(!state.settings.holidayDates) state.settings.holidayDates = [];
+  if(state.settings.missionStatement===undefined) state.settings.missionStatement = DEFAULT_MISSION; // '' (cleared on purpose) is respected
+  if(state.settings.lastMissionDate===undefined) state.settings.lastMissionDate = null;
   if(state.lastSeenVersion===undefined) state.lastSeenVersion = APP_VERSION-1;
   if(state.weekly && state.weekly.weeksData){
     Object.values(state.weekly.weeksData).forEach(wd=>{
@@ -6751,6 +6781,7 @@ function openSettingsModal(){
     <div class="modal">
       <h2>⚙ Settings</h2>
       <div class="field-row"><label>Reminder Email</label><input id="settings-email" value="${escAttr(state.settings.email)}"/></div>
+      <div class="field-row"><label>Daily Mission Statement — retype it from memory the first time you open the app each day; small typos are forgiven (clear it to switch the popup off)</label><textarea id="settings-mission" rows="3">${escHtml(state.settings.missionStatement||'')}</textarea></div>
       <div class="field-row"><label>Send Weekly-Plan Reminders At</label></div>
       <div id="settings-reminders-list">
         ${state.settings.reminders.map((r,i)=>`
@@ -6957,6 +6988,8 @@ function captureReminderEdits(){
 function saveSettings(){
   const emailEl = document.getElementById('settings-email');
   if(emailEl && emailEl.value.trim()) state.settings.email = emailEl.value.trim();
+  const missionEl = document.getElementById('settings-mission');
+  if(missionEl) state.settings.missionStatement = missionEl.value.trim();
   const msIdEl = document.getElementById('settings-ms-client-id');
   if(msIdEl) state.settings.msClientId = msIdEl.value.trim();
   const repoEl = document.getElementById('settings-github-repo');
@@ -7106,6 +7139,90 @@ function showWhatsNewModal(changes){
   </div>`;
 }
 
+/* ================= DAILY MISSION STATEMENT GATE ================= */
+// Spacing is normalised for display; the actual check (missionMatch) is tolerant of small typos.
+function normMission(s){ return String(s||'').replace(/\s+/g,' ').trim(); }
+function missionGateNeeded(){
+  const stmt = normMission(state.settings && state.settings.missionStatement);
+  return !!stmt && state.settings.lastMissionDate !== todayISO();
+}
+const MISSION_INERT_SELECTORS = ['.app-shell','#overlay','#modal-root','.hq-footer'];
+function setMissionInert(on){
+  MISSION_INERT_SELECTORS.forEach(sel=>{
+    const el = document.querySelector(sel);
+    if(!el) return;
+    if(on) el.setAttribute('inert',''); else el.removeAttribute('inert');
+  });
+}
+function checkMissionGate(){
+  if(document.getElementById('mission-gate')) return; // already showing
+  if(!missionGateNeeded()) return;
+  showMissionGate();
+}
+function showMissionGate(){
+  const gate = document.createElement('div');
+  gate.id = 'mission-gate';
+  gate.className = 'mission-gate';
+  gate.innerHTML = `<div class="mission-box" role="dialog" aria-modal="true" aria-labelledby="mission-title">
+    <div class="mission-kicker">${escHtml(DAYS[new Date().getDay()])} · ${escHtml(fmtDMY(todayISO()))}</div>
+    <h2 id="mission-title">Your Mission Statement</h2>
+    <p>Before you start today, type out your mission statement.</p>
+    <textarea id="mission-input" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type it here..."></textarea>
+    <div id="mission-msg" class="mission-msg"></div>
+    <div class="mission-actions"><button class="btn btn-accent" onclick="submitMission()">Continue</button></div>
+  </div>`;
+  document.body.appendChild(gate);
+  setMissionInert(true);
+  const ta = document.getElementById('mission-input');
+  ta.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitMission(); } }); // Enter submits; no line breaks needed
+  ta.focus();
+}
+// Compare letters only: capitals, punctuation, spacing and accents are ignored.
+function missionLetters(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+// Edit distance where a swapped pair of neighbouring letters ('teh') counts as ONE slip, not two
+function missionEditDistance(a, b){
+  const n = a.length, m = b.length;
+  if(!n) return m; if(!m) return n;
+  const d = [];
+  for(let i=0;i<=n;i++){ d.push(new Array(m+1).fill(0)); d[i][0] = i; }
+  for(let j=0;j<=m;j++) d[0][j] = j;
+  for(let i=1;i<=n;i++){
+    for(let j=1;j<=m;j++){
+      const cost = a[i-1]===b[j-1] ? 0 : 1;
+      d[i][j] = Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+cost);
+      if(i>1 && j>1 && a[i-1]===b[j-2] && a[i-2]===b[j-1]) d[i][j] = Math.min(d[i][j], d[i-2][j-2]+1);
+    }
+  }
+  return d[n][m];
+}
+// How forgiving: about one slip per 12 letters (6 for a statement of this length), never fewer than 1.
+function missionMatch(typedRaw, targetRaw){
+  const typed = missionLetters(typedRaw), target = missionLetters(targetRaw);
+  const limit = Math.max(1, Math.floor(target.length * 0.08));
+  const dist = missionEditDistance(typed, target);
+  // is what they typed a faithful START of the statement (i.e. just unfinished), rather than something else?
+  const prefixDist = missionEditDistance(typed, target.slice(0, typed.length));
+  const isUnfinished = typed.length>0 && typed.length < target.length*0.85 && prefixDist <= Math.max(1, Math.floor(typed.length*0.08));
+  return {ok: !!typed && !!target && dist <= limit, dist, limit, typedLen: typed.length, targetLen: target.length, isUnfinished};
+}
+function submitMission(){
+  const ta = document.getElementById('mission-input'), msg = document.getElementById('mission-msg');
+  if(!ta || !msg) return;
+  if(!normMission(ta.value)){ msg.textContent = 'Type your mission statement to continue.'; return; }
+  const r = missionMatch(ta.value, state.settings.missionStatement);
+  if(r.ok){
+    state.settings.lastMissionDate = todayISO();
+    saveState();
+    const gate = document.getElementById('mission-gate');
+    if(gate) gate.remove();
+    setMissionInert(false);
+    return;
+  }
+  if(r.isUnfinished) msg.textContent = 'So far so good — but it looks unfinished, keep going.';
+  else if(r.dist <= r.limit*2) msg.textContent = 'Close — but a few too many differences. Check the wording.';
+  else msg.textContent = 'That doesn\'t match your mission statement — try again.';
+}
+
 async function init(){
   await loadState();
   applyStoredTheme();
@@ -7116,10 +7233,11 @@ async function init(){
   setupOverlayActions();
   checkForAppUpdates();
   checkNextDayPlanStatus();
-  document.addEventListener('visibilitychange', ()=>{ document.body.classList.toggle('page-hidden', document.hidden); });
+  document.addEventListener('visibilitychange', ()=>{ document.body.classList.toggle('page-hidden', document.hidden); if(!document.hidden) checkMissionGate(); });
   document.body.classList.toggle('page-hidden', document.hidden);
-  setInterval(()=>{ renderClock(); renderOverlay(); checkReminder(); checkWeeklyPlanReminder(); checkFieldLedgerScheduledSync(); checkNextDayPlanStatus(); }, 15000);
+  setInterval(()=>{ renderClock(); renderOverlay(); checkReminder(); checkWeeklyPlanReminder(); checkFieldLedgerScheduledSync(); checkNextDayPlanStatus(); checkMissionGate(); }, 15000);
   renderClock(); renderOverlay(); checkReminder(); checkWeeklyPlanReminder(); checkFieldLedgerScheduledSync();
+  checkMissionGate(); // first look of the day
 }
 document.addEventListener('DOMContentLoaded', init);
 
