@@ -21,6 +21,7 @@
 
 
 
+
 :root{
   --bg-0:#101317;
   --bg-1:#171b20;
@@ -996,8 +997,56 @@ body[data-theme="light-sand"]{ --body-overlay: rgba(245,240,230,.92); }
 }
 .mission-box textarea:focus{outline:none;border-color:var(--amber);}
 .mission-msg{min-height:16px;margin-top:6px;font-size:12px;line-height:1.4;color:var(--red);}
+.mission-msg-title{font-weight:700;margin-bottom:4px;}
+.mission-diff{padding:8px 10px;background:var(--bg-0);border:1px solid var(--line);color:var(--text);font-size:13.5px;line-height:1.55;overflow-wrap:anywhere;}
+.mission-diff .bad{color:#ff6b6b;font-weight:700;text-decoration:underline wavy #ff6b6b;text-underline-offset:3px;}
+.mission-diff .gap{color:var(--amber);font-weight:700;}
+.mission-hint{margin-top:6px;color:var(--amber);font-size:13px;line-height:1.45;overflow-wrap:anywhere;}
+.mission-hint strong{color:var(--text);}
 .mission-actions{display:flex;justify-content:flex-end;margin-top:8px;}
 
+
+
+.mission-tick-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0 8px;}
+.mission-tick{width:84px;height:84px;}
+.mission-tick-circle{stroke:#3ddc5a;stroke-width:3;stroke-dasharray:145;stroke-dashoffset:145;animation:missionTickCircle .5s ease-out forwards;transform-origin:center;}
+.mission-tick-check{stroke:#3ddc5a;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:missionTickCheck .35s .45s ease-out forwards;}
+.mission-done-text{font-family:var(--font-head);text-transform:uppercase;letter-spacing:2px;font-size:13px;color:#3ddc5a;opacity:0;animation:missionTickText .3s .7s ease-out forwards;}
+.mission-box-done{animation:missionBoxPop .45s ease-out;}
+.mission-gate-out{opacity:0;transition:opacity .3s ease;}
+@keyframes missionTickCircle{to{stroke-dashoffset:0;}}
+@keyframes missionTickCheck{to{stroke-dashoffset:0;}}
+@keyframes missionTickText{to{opacity:1;}}
+@keyframes missionBoxPop{0%{transform:scale(.96);}60%{transform:scale(1.03);}100%{transform:scale(1);}}
+
+.strety-mark{position:absolute;bottom:-6px;right:-6px;width:15px;height:15px;background:url(data:image/png;base64,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) center/contain no-repeat;display:block;}
+.strety-mark-mini{bottom:-3px;right:-4px;width:9px;height:9px;}
+.desc-dot{color:var(--text-dim);font-size:9px;vertical-align:middle;}
+
+.btn-sync{display:inline-flex;align-items:center;gap:6px;}
+.btn-sync.syncing .sync-ico{animation:syncSpin .9s linear infinite;}
+@keyframes syncSpin{to{transform:rotate(360deg);}}
+
+.task-box.pushed-down{position:relative;z-index:3;}
+
+.push-modal{max-width:320px;text-align:center;}
+.push-picker{display:flex;flex-direction:column;align-items:center;gap:6px;margin:10px 0 16px;}
+.push-arrow{width:64px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--bg-3);color:var(--text);font-size:16px;cursor:pointer;}
+.push-arrow:active{background:var(--amber);color:#000;}
+.push-val{font-family:var(--font-head);font-size:26px;letter-spacing:1px;color:var(--amber);min-width:120px;}
+
+.ctx-menu{position:fixed;z-index:100000;min-width:200px;max-width:280px;background:var(--bg-2,#1b2027);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:6px;font-size:13px;}
+.ctx-title{padding:6px 10px 6px;font-size:11px;letter-spacing:.5px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--border);margin-bottom:4px;}
+.ctx-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:none;color:var(--text);padding:8px 10px;border-radius:6px;cursor:pointer;font:inherit;}
+.ctx-item:hover{background:var(--bg-3);}
+.ctx-ico{width:18px;text-align:center;}
+.ctx-sep{height:1px;background:var(--border);margin:4px 0;}
+.ctx-pri-row{display:flex;align-items:center;gap:6px;padding:6px 10px;}
+.ctx-lbl{flex:1;color:var(--text-dim);}
+.ctx-pri{width:28px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--bg-3);color:var(--text);font-weight:800;cursor:pointer;}
+.ctx-pri.on{outline:2px solid var(--amber);}
+.ctx-pri:hover{background:var(--bg-1);}
+.ctx-date-row{display:flex;gap:6px;padding:6px 8px;align-items:center;}
 </style>
 </head>
 <body>
@@ -1053,6 +1102,7 @@ body[data-theme="light-sand"]{ --body-overlay: rgba(245,240,230,.92); }
 const SEED_TASKS = [];
 </script>
 <script>
+
 
 
 
@@ -2026,17 +2076,21 @@ function isActiveWeeklyGoal(taskId){
     return g && g.locked && g.taskId===taskId;
   }));
 }
-function weeklyGoalMarkHtml(taskId){
-  return isActiveWeeklyGoal(taskId) ? '<span class="weekly-goal-mark" title="Active weekly goal this week">G</span>' : '';
+function stretyMarkHtml(t, mini){
+  return (t && t.source==='strety') ? `<span class="strety-mark${mini?' strety-mark-mini':''}" title="Strety task assigned by Kevin Bradshaw"></span>` : '';
+}
+function weeklyGoalMarkHtml(taskId, t){
+  if(isActiveWeeklyGoal(taskId)) return '<span class="weekly-goal-mark" title="Active weekly goal this week">G</span>';
+  return stretyMarkHtml(t || (state.tasks.find(x=>x.id===taskId)), false);
 }
 
 function taskBadgeHtml(t, opts){
   const pri = computePriority(t);
   if(pri==='U'){
     const content = (opts && opts.urgentAsText) ? '<span class="badge-urgent-text">URGENT</span>' : URGENT_EXCLAIM_HTML;
-    return `<span class="badge-wrap"><span class="badge badge-U" title="Very Urgent — due today">${content}</span>${weeklyGoalMarkHtml(t.id)}</span>`;
+    return `<span class="badge-wrap"><span class="badge badge-U" title="Very Urgent — due today">${content}</span>${weeklyGoalMarkHtml(t.id,t)}</span>`;
   }
-  return `<span class="badge-wrap"><span class="badge badge-${pri}">${pri}</span>${weeklyGoalMarkHtml(t.id)}</span>`;
+  return `<span class="badge-wrap"><span class="badge badge-${pri}">${pri}</span>${weeklyGoalMarkHtml(t.id,t)}</span>`;
 }
 
 function computePriority(task){
@@ -2611,6 +2665,7 @@ function renderDaily(){
     <div class="daily-header">
       <div class="daytitle"><span>${dayName}</span> SITREP — ${fmtDMY(dateStr)}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-small btn-sync" id="sync-btn" onclick="syncAll('${dateStr}')" title="Pull Outlook calendar items and new Strety tasks from Kevin Bradshaw"><svg class="sync-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 16"/><path d="M21 21v-5h-5"/></svg> Sync</button>
         <button class="btn btn-accent btn-small" onclick="autoFillDay('${dateStr}')" title="Auto-fill empty slots with your highest priority tasks">⚡ Auto Fill</button>
         <button class="btn btn-red btn-small" onclick="confirmClearDay('${dateStr}')" title="Clear your own tasks and Outlook items, keep fixed blocks">🗑 Clear Day</button>
       </div>
@@ -2979,7 +3034,9 @@ function renderDailyColumn(dateStr, dayIdx, startH, endH){
       else if(now>=blockEnd && slot.taskId) rowClass+=' past';
     }
     if(slot && slot.completed) rowClass += ' slot-done';
-    inner += `<div class="${rowClass}" data-slotkey="${slotKey}" data-datestr="${dateStr}" style="grid-row:${idx+1} / span ${span};grid-column:3;">${renderTaskBoxInner(dateStr, slotKey, slot, span)}</div>`;
+    const pushOff = (slot && slot.pushOffset) || 0;
+    if(pushOff) rowClass += ' pushed-down';
+    inner += `<div class="${rowClass}" data-slotkey="${slotKey}" data-datestr="${dateStr}" style="grid-row:${idx+1} / span ${span};grid-column:3;${pushOff?`transform:translateY(${pushOff*2}px);`:''}" ${pushOff?`title="Pushed down ${pushOff} min"`:''}>${renderTaskBoxInner(dateStr, slotKey, slot, span)}</div>`;
   });
 
   let progressBarHtml = '';
@@ -3079,7 +3136,7 @@ function renderTaskBoxInner(dateStr, slotKey, slot, span){
       fullName = name;
       const rankTask = task || (slot.projectRef ? (state.tasks.find(t=>t.id===slot.projectRef.taskId) || state.archive.find(t=>t.id===slot.projectRef.taskId)) : null);
       const pri = rankTask ? computePriority(rankTask) : null;
-      sq = pri ? `<div class="prio-letter ${slot.source==='weeklygoal' ? 'pri-white' : 'pri-'+pri}">${pri}${task&&isActiveWeeklyGoal(task.id)?'<span class="weekly-goal-mark weekly-goal-mark-mini" title="Active weekly goal this week">G</span>':''}</div>` : '';
+      sq = pri ? `<div class="prio-letter ${slot.source==='weeklygoal' ? 'pri-white' : 'pri-'+pri}">${pri}${task&&isActiveWeeklyGoal(task.id)?'<span class="weekly-goal-mark weekly-goal-mark-mini" title="Active weekly goal this week">G</span>':stretyMarkHtml(task,true)}</div>` : '';
       taskHtml = `<div class="tb-main-row"><div class="tname" title="${escAttr(name)}">${escHtml(name)}</div></div>`;
     }
   }
@@ -3588,7 +3645,7 @@ function attemptAssign(dateStr, startKey, minutes, data){
 function attemptAssignSubItem(dateStr, startKey, minutes, data){
   const d = ensureDaily(dateStr);
   const existing = d.slots[startKey];
-  const usedMinutes = (existing && existing.isMulti) ? existing.subItems.reduce((sum,s)=>sum+s.duration,0) : 0;
+  const usedMinutes = (existing && existing.isMulti) ? (existing.padMin||0) + existing.subItems.reduce((sum,s)=>sum+s.duration,0) : 0;
   const hasRoom = !existing || (existing.isMulti && usedMinutes+minutes<=15);
   if(!hasRoom){
     showNotice('No Room Here', "That 15-minute slot doesn't have enough space left for a "+minutes+"-minute task. Pick an empty or partially-used slot instead.");
@@ -3619,12 +3676,12 @@ function deleteSubItem(dateStr, slotKey, subId){
   const slot = d.slots[slotKey];
   if(!slot || !slot.isMulti) return;
   slot.subItems = slot.subItems.filter(s=>s.id!==subId);
-  if(slot.subItems.length===0) delete d.slots[slotKey];
+  if(slot.subItems.length===0 && !slot.padMin) delete d.slots[slotKey];
   saveState(); renderDaily();
 }
 function renderMultiSlot(dateStr, gridRowIdx, slotKey, slot){
   const pxPerMin = 2; // 30px row / 15 minutes
-  let cursor = 0;
+  let cursor = slot.padMin || 0; // minutes at the top of this quarter taken by a pushed-down task above
   let boxesHtml = '';
   slot.subItems.forEach(sub=>{
     const top = cursor*pxPerMin;
@@ -3645,7 +3702,7 @@ function renderMultiSlot(dateStr, gridRowIdx, slotKey, slot){
     boxesHtml += `<div class="task-box${boxClass}${doneClass}" style="position:absolute;top:${top}px;height:${height}px;left:0;right:0;margin:0 5px;box-sizing:border-box;">${content}</div>`;
     cursor += sub.duration;
   });
-  const usedMinutes = slot.subItems.reduce((sum,s)=>sum+s.duration,0);
+  const usedMinutes = (slot.padMin||0) + slot.subItems.reduce((sum,s)=>sum+s.duration,0);
   if(usedMinutes<15){
     const top = usedMinutes*pxPerMin;
     const height = (15-usedMinutes)*pxPerMin;
@@ -3653,7 +3710,8 @@ function renderMultiSlot(dateStr, gridRowIdx, slotKey, slot){
       <div class="empty-hint" style="font-size:9px;">+ ${15-usedMinutes}m free</div>
     </div>`;
   }
-  return `<div style="grid-row:${gridRowIdx+1};grid-column:3;position:relative;height:30px;">${boxesHtml}</div>`;
+  const mOff = slot.pushOffset || 0;
+  return `<div data-slotkey="${slotKey}" data-datestr="${dateStr}" style="grid-row:${gridRowIdx+1};grid-column:3;position:relative;height:30px;${mOff?`transform:translateY(${mOff*2}px);z-index:3;`:''}">${boxesHtml}</div>`;
 }
 
 function showConflictModal(){
@@ -4189,6 +4247,297 @@ function autoFillDay(dateStr){
     showNotice('Auto Fill', 'No empty slots matched your remaining tasks by category and duration. Try widening some Weekly Orders time blocks to Open (blank), or free up more of the day.');
   }
 }
+
+
+/* ================= SYNC (Outlook calendar + Strety tasks) ================= */
+async function syncAll(dateStr){
+  const btn = document.getElementById('sync-btn');
+  if(btn) btn.classList.add('syncing');
+  let res = null;
+  try{ res = await syncStrety(); }catch(e){ res = {added:0, note:'Strety: '+e.message, error:true}; }
+  if(btn) btn.classList.remove('syncing');
+  if(res && res.note) showToast(res.note);
+  syncOutlook(dateStr, {silent:false});
+}
+function normalizeStretyItems(raw){
+  let items = raw;
+  if(typeof items==='string'){ try{ items = JSON.parse(items); }catch(e){ items = []; } }
+  if(items && !Array.isArray(items) && Array.isArray(items.tasks)) items = items.tasks;
+  if(items && !Array.isArray(items) && Array.isArray(items.events)) items = items.events;
+  if(!Array.isArray(items)) return [];
+  return items.map(x=>{
+    if(!x) return null;
+    const title = String(x.title || x.name || '').trim();
+    if(!title) return null;
+    return {
+      id: String(x.id || x.todoId || x.todo_id || x.messageId || ('t:'+title.toLowerCase())),
+      title,
+      description: String(x.description || x.body || '').replace(/^No description provided$/i,'').trim(),
+      assignedBy: String(x.assignedBy || x.assigned_by || x.from || 'Kevin Bradshaw'),
+      received: x.received || x.receivedDateTime || null
+    };
+  }).filter(Boolean);
+}
+async function fetchStretyItems(){
+  const mode = outlookSyncMode();
+  if(mode==='github-file'){
+    const repo = normalizeRepoString(state.settings.githubRepo);
+    const resp = await fetch(`https://raw.githubusercontent.com/${repo}/main/strety-tasks.json?t=${Date.now()}`, {cache:'no-store'});
+    if(resp.status===404) throw new Error('strety-tasks.json not found in the repo yet — the scheduled task has not written it.');
+    if(!resp.ok) throw new Error('could not read strety-tasks.json (HTTP '+resp.status+')');
+    return normalizeStretyItems(await resp.json());
+  }
+  if(mode==='supabase'){
+    const base = normalizeSupabaseUrl(state.settings.supabaseUrl);
+    const key = (state.settings.supabaseAnonKey||'').trim();
+    const resp = await fetch(`${base}/rest/v1/strety_tasks?select=*&order=received.desc&limit=300`, {headers:{apikey:key, Authorization:'Bearer '+key}, cache:'no-store'});
+    if(!resp.ok) throw new Error('could not read the strety_tasks table (HTTP '+resp.status+')');
+    return normalizeStretyItems(await resp.json());
+  }
+  return null;
+}
+async function syncStrety(){
+  const items = await fetchStretyItems();
+  if(items===null) return {added:0, note:null}; // no sync source configured — calendar sync handles its own message
+  if(!state.stretyImported) state.stretyImported = {};
+  const norm = s=>String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const knownTitles = new Set(state.tasks.concat(state.archive).filter(t=>t.source==='strety').map(t=>norm(t.name)));
+  let added = 0;
+  items.forEach(it=>{
+    if(!/kevin\s+bradshaw/i.test(it.assignedBy)) return;
+    if(state.stretyImported[it.id]) return;            // already imported once (even if since completed/archived)
+    if(knownTitles.has(norm(it.title))){ state.stretyImported[it.id] = true; return; } // same task already on the list
+    const task = {
+      id: uid(), name: it.title, category:'Purchasing', workType:'General', time:30, multiStep:false,
+      priority:'A', dueDate: computeDueDateFromOffset(new Date(), priorityDueOffset('A'), false),
+      created: todayISO(), source:'strety', stretyId: it.id
+    };
+    if(it.description) task.description = it.description;
+    state.tasks.push(task);
+    state.stretyImported[it.id] = true;
+    knownTitles.add(norm(it.title));
+    added++;
+  });
+  saveState();
+  if(added>0 && activeTab==='roster') renderRoster();
+  return {added, note: added>0 ? `Strety: ${added} new task${added>1?'s':''} added to your Task List` : 'Strety: no new tasks'};
+}
+
+
+/* ================= PUSH TASKS DOWN =================
+   Shifts the chosen task and everything after it later by 5/10/15/20... minutes. Whole 15-minute
+   multiples move the blocks down whole rows. A remainder of 5 or 10 leaves each block sitting
+   part-way into the row (pushOffset) and the last block overhangs into the next row, which keeps
+   only the remaining 5/10 minutes free for a small task - same rule as allocating 5/10 minute tasks. */
+function pushIsFixed(s){ return s.source==='default' || s.source==='outlook' || s.source==='weeklygoal' || s.source==='fieldledger'; }
+function pushIsPad(s){ return !!(s && s.isMulti && s.padMin && (!s.subItems || s.subItems.length===0)); }
+function pushBlockName(s){
+  if(s.taskId){ const t = state.tasks.find(x=>x.id===s.taskId) || state.archive.find(x=>x.id===s.taskId); if(t) return t.name; }
+  return s.customText || s.name || 'a fixed block';
+}
+function planPushDown(dateStr, startKey, T){
+  const d = ensureDaily(dateStr), allQ = quarters();
+  const blocks = [];
+  allQ.forEach((q,i)=>{
+    const s = d.slots[q.key];
+    if(!s || s.occupiedBy || pushIsPad(s)) return;
+    blocks.push({key:q.key, idx:i, span: s.isMulti ? 1 : Math.max(1, s.span||1), slot:s, off:s.pushOffset||0, fixed:pushIsFixed(s)});
+  });
+  const first = blocks.findIndex(b=>b.key===startKey);
+  if(first<0) return {ok:false, reason:'That item could not be found on the schedule.'};
+  if(blocks[first].fixed) return {ok:false, reason:'Fixed blocks (routines, meetings, weekly goals) cannot be pushed.'};
+  const moves = []; let p = T, prevEnd = 0;
+  for(let i=first; i<blocks.length && p>0; i++){
+    const b = blocks[i];
+    const start = b.idx*15 + b.off, end = (b.idx+b.span)*15 + b.off;
+    if(i>first){ p = Math.max(0, p - (start - prevEnd)); if(p<=0) break; }
+    if(b.fixed) return {ok:false, reason:`Not enough room — pushing by ${T} min would run into "${pushBlockName(b.slot)}", which is fixed.`};
+    moves.push({b, shift:p}); prevEnd = end;
+  }
+  moves.forEach(m=>{
+    const total = m.b.off + m.shift;
+    m.q = Math.floor(total/15); m.r = total%15; m.newIdx = m.b.idx + m.q;
+  });
+  const last = moves[moves.length-1];
+  const overhangIdx = last.newIdx + last.b.span;
+  if(overhangIdx > allQ.length || (last.r>0 && overhangIdx >= allQ.length))
+    return {ok:false, reason:`Not enough room — pushing by ${T} min would run past the end of the day.`};
+  // every target quarter must be free (or hold one of the moving blocks / an old pad)
+  const movingKeys = new Set();
+  moves.forEach(m=>{ for(let k=0;k<m.b.span;k++) movingKeys.add(allQ[m.b.idx+k].key); });
+  const targets = [];
+  moves.forEach(m=>{ for(let k=0;k<m.b.span;k++) targets.push(m.newIdx+k); });
+  if(last.r>0) targets.push(overhangIdx);
+  for(const ti of targets){
+    const key = allQ[ti].key, s = d.slots[key];
+    if(s && !movingKeys.has(key) && !pushIsPad(s))
+      return {ok:false, reason:`Not enough room — pushing by ${T} min would collide with something already scheduled.`};
+  }
+  return {ok:true, moves, last, overhangIdx, firstIdx: blocks[first].idx};
+}
+function applyPushDown(dateStr, startKey, T){
+  const d = ensureDaily(dateStr), allQ = quarters();
+  const plan = planPushDown(dateStr, startKey, T);
+  if(!plan.ok){ showNotice('Cannot Push Down', plan.reason); return false; }
+  // drop old overhang pads in the affected region
+  Object.keys(d.slots).forEach(k=>{
+    const i = allQ.findIndex(q=>q.key===k);
+    if(i>=plan.firstIdx && i<=plan.overhangIdx && pushIsPad(d.slots[k])) delete d.slots[k];
+  });
+  // lift every moving block, then lay them down at their new rows
+  plan.moves.forEach(m=>{
+    for(let k=0;k<m.b.span;k++) delete d.slots[allQ[m.b.idx+k].key];
+  });
+  plan.moves.forEach(m=>{
+    const s = m.b.slot;
+    if(m.r>0) s.pushOffset = m.r; else delete s.pushOffset;
+    const pk = allQ[m.newIdx].key;
+    d.slots[pk] = s;
+    if(!s.isMulti){ s.span = m.b.span; for(let k=1;k<m.b.span;k++) d.slots[allQ[m.newIdx+k].key] = {occupiedBy:pk}; }
+  });
+  if(plan.last.r>0 && !d.slots[allQ[plan.overhangIdx].key]){
+    d.slots[allQ[plan.overhangIdx].key] = {isMulti:true, subItems:[], padMin:plan.last.r};
+  }
+  saveState(); renderDaily();
+  return true;
+}
+window._pushState = null;
+function pushAmountLabel(v){ return v+' min'; }
+function openPushDownPicker(dateStr, slotKey){
+  window._pushState = {dateStr, slotKey, amount:15};
+  document.getElementById('modal-root').innerHTML = `<div class="modal-back" onclick="if(event.target===this) closeModal()">
+    <div class="modal push-modal">
+      <h2>⏬ Push tasks down</h2>
+      <p>Moves this task and every task after it later in the day.</p>
+      <div class="push-picker">
+        <button class="push-arrow" onclick="pushStep(1)" aria-label="More">▲</button>
+        <div class="push-val" id="push-val">15 min</div>
+        <button class="push-arrow" onclick="pushStep(-1)" aria-label="Less">▼</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-small" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-accent btn-small" onclick="confirmPushDown()">Push down</button>
+      </div>
+    </div>
+  </div>`;
+}
+function pushStep(dir){
+  const s = window._pushState; if(!s) return;
+  s.amount = Math.max(5, Math.min(240, s.amount + dir*5));
+  const el = document.getElementById('push-val'); if(el) el.textContent = pushAmountLabel(s.amount);
+}
+function confirmPushDown(){
+  const s = window._pushState; if(!s) return;
+  closeModal();
+  applyPushDown(s.dateStr, s.slotKey, s.amount);
+}
+
+/* ================= RIGHT-CLICK TASK MENU ================= */
+function closeCtxMenu(){ const m = document.getElementById('ctx-menu'); if(m) m.remove(); }
+function ctxFindTask(id){ return state.tasks.find(t=>t.id===id) || state.archive.find(t=>t.id===id) || null; }
+function openCtxMenu(x, y, items, title){
+  closeCtxMenu();
+  const m = document.createElement('div');
+  m.id = 'ctx-menu'; m.className = 'ctx-menu';
+  m.innerHTML = (title?`<div class="ctx-title">${escHtml(title)}</div>`:'') + items.map((it,i)=>
+    it.sep ? '<div class="ctx-sep"></div>' :
+    it.pri ? `<div class="ctx-pri-row"><span class="ctx-lbl">Priority</span>${['A','B','C','D'].map(p=>`<button class="ctx-pri pri-${p}${it.cur===p?' on':''}" data-p="${p}">${p}</button>`).join('')}</div>` :
+    `<button class="ctx-item" data-i="${i}">${it.icon?`<span class="ctx-ico">${it.icon}</span>`:''}${escHtml(it.label)}</button>`).join('');
+  document.body.appendChild(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(4, Math.min(x, window.innerWidth - r.width - 4)) + 'px';
+  m.style.top = Math.max(4, Math.min(y, window.innerHeight - r.height - 4)) + 'px';
+  m.addEventListener('click', e=>{
+    const pb = e.target.closest('.ctx-pri');
+    if(pb){ const it = items.find(z=>z.pri); closeCtxMenu(); it.onPick(pb.dataset.p); return; }
+    const b = e.target.closest('.ctx-item'); if(!b) return;
+    const it = items[+b.dataset.i];
+    if(it.keepOpen){ it.action(m); return; }
+    closeCtxMenu(); it.action();
+  });
+}
+function ctxSetPriority(taskId, p){
+  const t = ctxFindTask(taskId); if(!t) return;
+  t.priority = p;
+  t.dueDate = computeDueDateFromOffset(new Date(), priorityDueOffset(p), false);
+  saveState(); renderAll(); showToast('Priority '+p+' — due '+fmtDMY(t.dueDate));
+}
+function ctxChangeDue(menuEl, taskId){
+  const t = ctxFindTask(taskId); if(!t) return;
+  menuEl.innerHTML = `<div class="ctx-title">Change due date</div><div class="ctx-date-row"><input type="date" id="ctx-date" value="${t.dueDate||''}"/><button class="btn btn-small btn-accent" id="ctx-date-save">Save</button></div>`;
+  const inp = menuEl.querySelector('#ctx-date');
+  menuEl.querySelector('#ctx-date-save').onclick = ()=>{
+    if(!inp.value) return;
+    t.dueDate = inp.value; saveState(); closeCtxMenu(); renderAll(); showToast('Due date updated');
+  };
+  inp.focus();
+}
+function ctxEditDescription(taskId){
+  const t = ctxFindTask(taskId); if(!t) return;
+  document.getElementById('modal-root').innerHTML = `<div class="modal-back" onclick="if(event.target===this) closeModal()"><div class="modal">
+    <h2>Description</h2><p class="assumption-note">${escHtml(t.name)}</p>
+    <textarea id="ctx-desc" rows="5" style="width:100%;">${escHtml(t.description||'')}</textarea>
+    <div class="modal-actions"><button class="btn btn-ghost btn-small" onclick="closeModal()">Cancel</button><button class="btn btn-accent btn-small" onclick="ctxSaveDescription('${taskId}')">Save</button></div>
+  </div></div>`;
+  const ta = document.getElementById('ctx-desc'); if(ta) ta.focus();
+}
+function ctxSaveDescription(taskId){
+  const t = ctxFindTask(taskId); if(!t) return;
+  const v = document.getElementById('ctx-desc').value.trim();
+  if(v) t.description = v; else delete t.description;
+  saveState(); closeModal(); renderAll();
+}
+function buildCtxItems(taskId, slotCtx){
+  const items = [];
+  const t = taskId ? ctxFindTask(taskId) : null;
+  const active = t && state.tasks.some(x=>x.id===t.id);
+  if(slotCtx){
+    const s = slotCtx.slot;
+    if(!pushIsFixed(s) && !pushIsPad(s)) items.push({icon:'⏬', label:'Push tasks down…', action:()=>openPushDownPicker(slotCtx.dateStr, slotCtx.slotKey)});
+  }
+  if(active){
+    items.push({icon:'✎', label:'Edit task…', action:()=>openEditTaskModal(t.id)});
+    items.push({icon:'📅', label:'Change due date…', keepOpen:true, action:(m)=>ctxChangeDue(m, t.id)});
+    items.push({pri:true, cur:computePriority(t), onPick:p=>ctxSetPriority(t.id,p)});
+    items.push({icon:'📝', label:t.description?'Edit description…':'Add description…', action:()=>ctxEditDescription(t.id)});
+    items.push({sep:true});
+    items.push({icon:'✓', label:'Mark done', action:()=>completeTask(t.id)});
+  }
+  if(slotCtx && !pushIsPad(slotCtx.slot) && slotCtx.slot.source!=='weeklygoal' && slotCtx.slot.source!=='default'){
+    items.push({icon:'↩', label:'Remove from this day', action:()=>clearSlot({stopPropagation(){}}, slotCtx.dateStr, slotCtx.slotKey)});
+  }
+  if(active) items.push({icon:'🗑', label:'Delete task…', action:()=>confirmDeleteTask(t.id)});
+  if(t && !active) items.push({icon:'↺', label:'Restore to Task List', action:()=>restoreTask(t.id)});
+  return items;
+}
+document.addEventListener('contextmenu', e=>{
+  if(e.target.closest('input,textarea,select,#ctx-menu,.modal,#mission-gate')) return;
+  let taskId = null, slotCtx = null;
+  const row = e.target.closest('[data-slotkey]');
+  if(row){
+    const dateStr = row.dataset.datestr, slotKey = row.dataset.slotkey;
+    const d = state.daily[dateStr];
+    const slot = d && d.slots[slotKey];
+    if(slot && !slot.occupiedBy){
+      slotCtx = {dateStr, slotKey, slot};
+      taskId = slot.taskId || (slot.projectRef && slot.projectRef.taskId) || null;
+    }
+  }
+  if(!slotCtx){
+    const tr = e.target.closest('[data-taskid]');
+    if(tr) taskId = tr.dataset.taskid;
+  }
+  if(!taskId && !slotCtx) return;
+  const items = buildCtxItems(taskId, slotCtx);
+  if(items.length===0) return;
+  e.preventDefault();
+  const t = taskId ? ctxFindTask(taskId) : null;
+  openCtxMenu(e.clientX, e.clientY, items, t ? t.name : (slotCtx ? pushBlockName(slotCtx.slot) : ''));
+});
+document.addEventListener('click', e=>{ if(!e.target.closest('#ctx-menu')) closeCtxMenu(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeCtxMenu(); });
+window.addEventListener('scroll', closeCtxMenu, true);
+window.addEventListener('resize', closeCtxMenu);
 
 /* ================= OUTLOOK SYNC =================
    Uses the in-artifact Anthropic API + Microsoft 365 MCP connector.
@@ -4802,7 +5151,7 @@ function renderRoster(){
     <h2>Add Task</h2>
     <div class="task-form-new">
       <div class="tf-row">
-        <div class="tf-field"><label>Task Name</label><input type="text" id="new-task-name" placeholder="e.g. Chase supplier re: invoice"/></div>
+        <div class="tf-field"><label>Task Name <span style="opacity:.6;font-weight:400;">(also searches the list below)</span></label><input type="text" id="new-task-name" value="${escAttr(state._searchTerm||'')}" placeholder="Type to search existing tasks, or fill in the rest and Add" oninput="onTaskNameInput(this.value)" autocomplete="off"/></div>
         <div class="tf-field"><label>Role Category</label><select id="new-task-cat">
           ${CATS.map(c=>`<option value="${c}" ${newTaskDraft.category===c?'selected':''}>${CAT_LABEL[c]}</option>`).join('')}
         </select></div>
@@ -4849,9 +5198,16 @@ function renderRoster(){
     </div>
   </div>`;
 
+  html += '<div id="task-list-wrap">' + buildTaskListCard() + '</div>';
+  panel.innerHTML = html;
+  renderProjectDraftBox();
+}
+function buildTaskListCard(){
+  const filterCat = state._filterCat || 'All';
+  const filterPri = state._filterPri || 'All';
+  let html = '';
   html += `<div class="card"><h2>Task List</h2>
     <div class="filters">
-      <input type="text" id="task-search-input" value="${escAttr(state._searchTerm||'')}" placeholder="🔍 Search tasks..." style="flex:1;min-width:140px;" oninput="state._searchTerm=this.value;renderRoster();" />
       <select onchange="state._filterPri=this.value;renderRoster()">
         <option value="All" ${filterPri==='All'?'selected':''}>All Priorities</option>
         <option value="A" ${filterPri==='A'?'selected':''}>A</option>
@@ -4906,9 +5262,9 @@ function renderRoster(){
     const dueCell = editingThis('dueDate')
       ? `<input autofocus type="date" value="${t.dueDate||''}" onchange="saveInlineEdit('${t.id}','dueDate',this.value)" onblur="cancelInlineEditBlur()"/>`
       : `<span class="editable-cell" title="Click to edit" onclick="startInlineEdit('${t.id}','dueDate')">${fmtDMY(t.dueDate)}${overdue?' (OVERDUE)':''}</span>`;
-    html += `<tr>
+    html += `<tr data-taskid="${t.id}">
       <td>${taskBadgeHtml(t)}</td>
-      <td class="task-name-cell">${escHtml(t.name)}${isProjectTask(t)?` <span class="project-progress">▦ ${(t.subtasks||[]).filter(s=>s.completed).length}/${(t.subtasks||[]).length} subtasks</span> <span class="project-edit-link" onclick="openProjectSubtasksEditor('${t.id}')">edit</span>`:''}</td>
+      <td class="task-name-cell" ${t.description?`title="${escAttr(t.description)}"`:''}>${escHtml(t.name)}${t.description?' <span class="desc-dot" title="Has a description">▪</span>':''}${isProjectTask(t)?` <span class="project-progress">▦ ${(t.subtasks||[]).filter(s=>s.completed).length}/${(t.subtasks||[]).length} subtasks</span> <span class="project-edit-link" onclick="openProjectSubtasksEditor('${t.id}')">edit</span>`:''}</td>
       <td>${catCell}</td>
       <td>${wtCell}</td>
       <td>${timeCell}</td>
@@ -4924,14 +5280,12 @@ function renderRoster(){
     </tr>`;
   });
   html += `</table></div>`;
-  const hadFocus = document.activeElement && document.activeElement.id==='task-search-input';
-  const caretPos = hadFocus ? document.activeElement.selectionStart : null;
-  panel.innerHTML = html;
-  renderProjectDraftBox();
-  if(hadFocus){
-    const el = document.getElementById('task-search-input');
-    if(el){ el.focus(); el.setSelectionRange(caretPos, caretPos); }
-  }
+  return html;
+}
+function onTaskNameInput(v){
+  state._searchTerm = v;
+  const w = document.getElementById('task-list-wrap');
+  if(w) w.innerHTML = buildTaskListCard();
 }
 
 function startInlineEdit(id, field){
@@ -5213,6 +5567,7 @@ function finalizeAddTask(data){
   const newTask = { id:uid(), name:data.name, category:data.cat, workType:data.wt, time:data.time, multiStep:data.multi, dueDate:data.due, priority:data.pri, created:todayISO() };
   if(data.wt==='Project' && data.subtasks) newTask.subtasks = data.subtasks;
   state.tasks.push(newTask);
+  state._searchTerm = '';
   newTaskDraft = {time:data.time, priority:data.pri, category:data.cat, workType:data.wt, multiStep:false, due:data.due, subtasks:[]};
   saveState(); renderRoster();
   showToast(data.pri==='U' ? 'Very urgent task added — due today' : 'Task added to list');
@@ -5414,7 +5769,7 @@ function openEditTaskModal(id){
       <div class="field-row"><label>Work Type</label><select id="edit-wt" ${isProjectTask(t)?'disabled':''}>
         ${(isProjectTask(t)?WORK_TYPES:WORK_TYPES.filter(w=>w!=='Project')).map(wt=>`<option value="${wt}" ${t.workType===wt?'selected':''}>${WT_LABEL[wt]}</option>`).join('')}
       </select></div>
-      <div class="field-row"><label>Priority</label><select id="edit-pri">
+      <div class="field-row"><label>Priority</label><select id="edit-pri" onchange="editPriorityChanged()">
         ${['A','B','C','D'].map(p=>`<option value="${p}" ${t.priority===p?'selected':''}>${p}</option>`).join('')}
       </select></div>
       <div class="field-row"><label>Time (min)</label><input id="edit-time" type="number" value="${t.time}" ${isProjectTask(t)?'readonly title="A project\'s time is the total of its subtasks"':''}/>${isProjectTask(t)?'<span class="assumption-note">Set automatically from the subtasks below.</span>':''}</div>
@@ -5425,6 +5780,7 @@ function openEditTaskModal(id){
           <input type="date" id="edit-due-hidden" class="hidden-date-input" value="${t.dueDate||''}" onchange="document.getElementById('edit-due-text').value=fmtDMY(this.value)"/>
         </div>
       </div>
+      <div class="field-row"><label>Description</label><textarea id="edit-desc" rows="3" style="width:100%;">${escHtml(t.description||'')}</textarea></div>
       <label class="multistep-toggle" style="margin-bottom:10px;"><input type="checkbox" id="edit-multi" ${t.multiStep?'checked':''}/> <span class="lbl">Multi-step task</span></label>
       <div class="modal-actions">
         ${isProjectTask(t)?`<button class="btn btn-small" onclick="openProjectSubtasksEditor('${id}')">Edit Subtasks</button>`:''}
@@ -5434,6 +5790,12 @@ function openEditTaskModal(id){
     </div>
   </div>`;
   document.getElementById('modal-root').innerHTML = html;
+}
+function editPriorityChanged(){
+  const pri = document.getElementById('edit-pri').value;
+  const due = computeDueDateFromOffset(new Date(), priorityDueOffset(pri), false);
+  document.getElementById('edit-due-hidden').value = due;
+  document.getElementById('edit-due-text').value = fmtDMY(due);
 }
 function saveEditTask(id){
   const t = state.tasks.find(x=>x.id===id);
@@ -5445,19 +5807,22 @@ function saveEditTask(id){
   const time = parseInt(document.getElementById('edit-time').value)||t.time;
   const due = document.getElementById('edit-due-hidden').value || null;
   const multi = document.getElementById('edit-multi').checked;
+  const descEl = document.getElementById('edit-desc');
+  const desc = descEl ? descEl.value.trim() : (t.description||'');
   const v = validatePriorityDate(pri, due);
   if(!v.ok){
-    window._pendingTaskEdit = {id, name, cat, wt, pri, time, due, multi};
+    window._pendingTaskEdit = {id, name, cat, wt, pri, time, due, multi, desc};
     showPriorityDateConflictModal(v, 'edit');
     return;
   }
-  finalizeEditTask({id, name, cat, wt, pri, time, due, multi});
+  finalizeEditTask({id, name, cat, wt, pri, time, due, multi, desc});
 }
 function finalizeEditTask(data){
   const t = state.tasks.find(x=>x.id===data.id);
   if(!t) return;
   t.name = data.name; t.category = data.cat; t.workType = data.wt; t.priority = data.pri;
   t.time = data.time; t.dueDate = data.due; t.multiStep = data.multi;
+  if(data.desc!==undefined){ if(data.desc) t.description = data.desc; else delete t.description; }
   saveState(); closeModal(); renderRoster();
   showToast('Task updated');
 }
@@ -5471,7 +5836,7 @@ function renderArchive(){
     html += `<tr><td colspan="5"><div class="empty-state">No completed tasks yet.</div></td></tr>`;
   }
   state.archive.slice().reverse().forEach(t=>{
-    html += `<tr>
+    html += `<tr data-taskid="${t.id}" data-archived="1">
       <td>${escHtml(t.name)}</td>
       <td><span class="badge badge-cat">${CAT_LABEL[t.category]||t.category}</span></td>
       <td>${t.time}m</td>
@@ -5507,9 +5872,19 @@ function recordDailyTaskSnapshot(){
 }
 function computeDayCompletion(dateStr){
   const dObj = state.daily[dateStr];
-  if(!dObj) return {amDone:0, amTotal:360, pmDone:0, pmTotal:240};
-  function countRange(startH, endH, fixedTotal){
+  if(!dObj) return {amDone:0, amTotal:0, pmDone:0, pmTotal:0};
+  function countRange(startH, endH){
     let done=0; // in MINUTES, not item-count - a points-based system against a fixed capacity
+    // capacity = the space BETWEEN the fixed blocks: every quarter in the range that isn't covered by a fixed (default) block
+    let fixedQuarters = 0, rangeQuarters = 0;
+    quarters().filter(q=>q.h>=startH && q.h<=endH).forEach(q=>{
+      rangeQuarters++;
+      const sl = dObj.slots['q'+q.h+'_'+q.m];
+      if(!sl) return;
+      const owner = sl.occupiedBy ? dObj.slots[sl.occupiedBy] : sl;
+      if(owner && owner.source==='default') fixedQuarters++;
+    });
+    const fixedTotal = Math.max(0, (rangeQuarters-fixedQuarters)*15);
     quarters().filter(q=>q.h>=startH && q.h<=endH).forEach(q=>{
       const slotKey='q'+q.h+'_'+q.m;
       const slot = dObj.slots[slotKey];
@@ -5535,9 +5910,9 @@ function computeDayCompletion(dateStr){
     });
     return {total:fixedTotal, done};
   }
-  const am = countRange(4,12,360);
+  const am = countRange(4,12);
   // PM stops at 19:59 - the 8-9pm block (hour 20, which also holds the Field Ledger evening items) is deliberately excluded
-  const pm = countRange(13,19,240);
+  const pm = countRange(13,19);
   return {amDone:Math.round(am.done), amTotal:am.total, pmDone:Math.round(pm.done), pmTotal:pm.total};
 }
 
@@ -7205,6 +7580,90 @@ function missionMatch(typedRaw, targetRaw){
   const isUnfinished = typed.length>0 && typed.length < target.length*0.85 && prefixDist <= Math.max(1, Math.floor(typed.length*0.08));
   return {ok: !!typed && !!target && dist <= limit, dist, limit, typedLen: typed.length, targetLen: target.length, isUnfinished};
 }
+// ---- Where did it go wrong? Letter-by-letter comparison, reported back word by word ----
+function missionTokens(raw){
+  // split into words; each word keeps its original look (for display) plus its comparable letters
+  return String(raw||'').split(/\s+/).filter(Boolean).map(w=>{
+    const letters = [];
+    for(const c of w.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()) if(/[a-z0-9]/.test(c)) letters.push(c);
+    return {raw:w, letters};
+  }).filter(t=>t.letters.length>0);
+}
+function missionAnalyse(typedRaw, targetRaw){
+  const T = missionTokens(typedRaw), G = missionTokens(targetRaw);
+  const a = [], b = [];
+  T.forEach((t,ti)=>t.letters.forEach(ch=>a.push({ch, tok:ti})));
+  G.forEach((t,gi)=>t.letters.forEach(ch=>b.push({ch, tok:gi})));
+  const n = a.length, m = b.length;
+  const d = []; for(let i=0;i<=n;i++){ d.push(new Array(m+1).fill(0)); d[i][0]=i; } for(let j=0;j<=m;j++) d[0][j]=j;
+  for(let i=1;i<=n;i++) for(let j=1;j<=m;j++)
+    d[i][j] = Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1] + (a[i-1].ch===b[j-1].ch?0:1));
+  // Walk back. Many alignments cost the same, so at a tie prefer to leave differences until the END: that matches as much
+  // of the start as possible and pins the problem on the first genuine difference (not on a repeated phrase later on).
+  const ops = []; let i=n, j=m;
+  while(i>0 || j>0){
+    if(i>0 && j>0 && d[i][j]===d[i-1][j-1]+(a[i-1].ch===b[j-1].ch?0:1) && d[i-1][j-1]+(a[i-1].ch===b[j-1].ch?0:1) < Math.min(i>0?d[i-1][j]+1:Infinity, j>0?d[i][j-1]+1:Infinity)){
+      ops.push({k:a[i-1].ch===b[j-1].ch?'match':'sub', ti:a[i-1].tok, gi:b[j-1].tok}); i--; j--;
+    }
+    else if(j>0 && d[i][j]===d[i][j-1]+1){ ops.push({k:'missing', ti:null, gi:b[j-1].tok}); j--; }
+    else if(i>0 && d[i][j]===d[i-1][j]+1){ ops.push({k:'extra', ti:a[i-1].tok, gi:null}); i--; }
+    else { ops.push({k:a[i-1].ch===b[j-1].ch?'match':'sub', ti:a[i-1].tok, gi:b[j-1].tok}); i--; j--; }
+  }
+  ops.reverse();
+  const bad = new Array(T.length).fill(false), gapAfter = {}; // gapAfter[tokenIdx] (-1 = before the first word)
+  let firstTargetTok = null, lastTyped = -1, p = 0;
+  while(p < ops.length){
+    const op = ops[p];
+    if(op.k==='match'){ lastTyped = op.ti; p++; continue; }
+    if(firstTargetTok===null){
+      if(op.gi!==null) firstTargetTok = op.gi;
+      else { const nx = ops.slice(p+1).find(o=>o.gi!==null); firstTargetTok = nx ? nx.gi : G.length-1; }
+    }
+    if(op.k==='sub' || op.k==='extra'){ bad[op.ti] = true; lastTyped = op.ti; p++; continue; }
+    // a run of target letters that were never typed
+    let q = p; while(q<ops.length && ops[q].k==='missing') q++;
+    const before = ops[p-1], after = ops[q];
+    const nextToWrongWord = (before && before.k!=='match') || (after && after.k!=='match'); // that word is already marked
+    if(!nextToWrongWord){
+      if(after && after.ti===lastTyped && lastTyped>=0) bad[lastTyped] = true; // inside a word -> misspelt
+      else gapAfter[lastTyped] = true;                                         // between words -> a word is missing here
+    }
+    p = q;
+  }
+  // a word spelt exactly like one of the statement's words is never reported as wrong (ties can otherwise blame a neighbour)
+  const alignedTo = T.map(()=>new Set());
+  ops.forEach(o=>{ if(o.ti!==null && o.gi!==null) alignedTo[o.ti].add(o.gi); });
+  T.forEach((t,idx)=>{
+    if(!bad[idx]) return;
+    const word = t.letters.join('');
+    for(const g of alignedTo[idx]){ if(G[g].letters.join('')===word){ bad[idx] = false; break; } }
+  });
+  const typedWords = T.map((t,idx)=>({raw:t.raw, bad:bad[idx]}));
+  const lastTok = G.length-1;
+  const ft = firstTargetTok;
+  let hint = '';
+  if(ft!==null){ // a few correct words from the first problem onwards - never the whole statement
+    const from = Math.max(0, ft-1), to = Math.min(lastTok, ft+3);
+    hint = (from>0?'… ':'') + G.slice(from, to+1).map(t=>t.raw).join(' ') + (to<lastTok?' …':'');
+  }
+  return {typedWords, gapAfter, firstTargetTok:ft, hint};
+}
+function missionFeedbackHtml(typedRaw, targetRaw, r){
+  const an = missionAnalyse(typedRaw, targetRaw);
+  if(r.isUnfinished) delete an.gapAfter[an.typedWords.length-1];
+  let title;
+  if(r.isUnfinished) title = 'So far so good — it looks unfinished.';
+  else if(r.dist <= r.limit*2) title = 'Close — a few too many differences. Here\'s where:';
+  else title = 'That doesn\'t match your mission statement. Here\'s where it goes wrong:';
+  const gap = '<span class="gap" title="a word is missing here">⟨ ? ⟩</span>';
+  let diff = '';
+  if(an.gapAfter[-1]) diff += gap + ' ';
+  diff += an.typedWords.map((w,idx)=> (w.bad?`<span class="bad">${escHtml(w.raw)}</span>`:escHtml(w.raw)) + (an.gapAfter[idx] ? ' '+gap : '')).join(' ');
+  const hintLabel = r.isUnfinished ? 'It carries on:' : 'It should read:';
+  return `<div class="mission-msg-title">${title}</div>
+    <div class="mission-diff">${diff}</div>
+    ${an.hint ? `<div class="mission-hint">${hintLabel} <strong>“${escHtml(an.hint)}”</strong></div>` : ''}`;
+}
 function submitMission(){
   const ta = document.getElementById('mission-input'), msg = document.getElementById('mission-msg');
   if(!ta || !msg) return;
@@ -7214,13 +7673,15 @@ function submitMission(){
     state.settings.lastMissionDate = todayISO();
     saveState();
     const gate = document.getElementById('mission-gate');
-    if(gate) gate.remove();
-    setMissionInert(false);
+    const box = gate ? gate.querySelector('.mission-box') : null;
+    if(!gate || !box){ if(gate) gate.remove(); setMissionInert(false); return; }
+    box.classList.add('mission-box-done');
+    box.innerHTML = `<div class="mission-tick-wrap"><svg class="mission-tick" viewBox="0 0 52 52" aria-hidden="true"><circle class="mission-tick-circle" cx="26" cy="26" r="23" fill="none"/><path class="mission-tick-check" fill="none" d="M14 27 l8 8 l16 -17"/></svg><div class="mission-done-text">Mission statement complete</div></div>`;
+    setTimeout(()=>{ gate.classList.add('mission-gate-out'); }, 1250);
+    setTimeout(()=>{ gate.remove(); setMissionInert(false); }, 1550);
     return;
   }
-  if(r.isUnfinished) msg.textContent = 'So far so good — but it looks unfinished, keep going.';
-  else if(r.dist <= r.limit*2) msg.textContent = 'Close — but a few too many differences. Check the wording.';
-  else msg.textContent = 'That doesn\'t match your mission statement — try again.';
+  msg.innerHTML = missionFeedbackHtml(ta.value, state.settings.missionStatement, r);
 }
 
 async function init(){
@@ -7240,6 +7701,7 @@ async function init(){
   checkMissionGate(); // first look of the day
 }
 document.addEventListener('DOMContentLoaded', init);
+
 
 
 
