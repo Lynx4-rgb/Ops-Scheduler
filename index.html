@@ -1047,6 +1047,10 @@ body[data-theme="light-sand"]{ --body-overlay: rgba(245,240,230,.92); }
 .ctx-pri.on{outline:2px solid var(--amber);}
 .ctx-pri:hover{background:var(--bg-1);}
 .ctx-date-row{display:flex;gap:6px;padding:6px 8px;align-items:center;}
+
+.push-dir{display:flex;gap:8px;justify-content:center;margin:6px 0 4px;}
+.push-dir-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg-3);color:var(--text);font-weight:700;cursor:pointer;}
+.push-dir-btn.on{background:var(--amber);color:#000;border-color:var(--amber);}
 </style>
 </head>
 <body>
@@ -2626,6 +2630,7 @@ function renderDaily(){
   cleanupOrphanedSlots(dObj);
   autoReleaseUncompletedLinkedTasks(dateStr);
   seedDailyDefaults(dateStr);
+  if(normalizePushGeometry(dateStr)) saveState();
   reconcileHouseReviewCollisions(dateStr, dayIdx);
   injectWeeklyGoals(dateStr, dayIdx);
   checkForGoalDisplacements(dateStr);
@@ -3003,6 +3008,7 @@ function renderDailyColumn(dateStr, dayIdx, startH, endH){
     }
     if(slot && slot.isMulti){
       inner += renderMultiSlot(dateStr, idx, slotKey, slot);
+      inner += renderPushHead(dateStr, idx, slotKey, slot);
       return;
     }
     const span = slot && slot.span ? Math.min(slot.span, qs.length-idx) : 1;
@@ -3035,6 +3041,7 @@ function renderDailyColumn(dateStr, dayIdx, startH, endH){
     }
     if(slot && slot.completed) rowClass += ' slot-done';
     const pushOff = (slot && slot.pushOffset) || 0;
+    if(pushOff) inner += renderPushHead(dateStr, idx, slotKey, slot);
     if(pushOff) rowClass += ' pushed-down';
     inner += `<div class="${rowClass}" data-slotkey="${slotKey}" data-datestr="${dateStr}" style="grid-row:${idx+1} / span ${span};grid-column:3;${pushOff?`transform:translateY(${pushOff*2}px);`:''}" ${pushOff?`title="Pushed down ${pushOff} min"`:''}>${renderTaskBoxInner(dateStr, slotKey, slot, span)}</div>`;
   });
@@ -3629,6 +3636,10 @@ function shiftBlockLater(dateStr, primaryKey, shiftMinutes){
 }
 
 function attemptAssign(dateStr, startKey, minutes, data){
+  if(isHeadKey(startKey) && minutes >= 15){
+    showNotice('No Room Here', "That gap is shorter than 15 minutes, so only a 5 or 10 minute task fits in it.");
+    return;
+  }
   if(minutes < 15){
     return attemptAssignSubItem(dateStr, startKey, minutes, data);
   }
@@ -3645,14 +3656,24 @@ function attemptAssign(dateStr, startKey, minutes, data){
 function attemptAssignSubItem(dateStr, startKey, minutes, data){
   const d = ensureDaily(dateStr);
   const existing = d.slots[startKey];
-  const usedMinutes = (existing && existing.isMulti) ? (existing.padMin||0) + existing.subItems.reduce((sum,s)=>sum+s.duration,0) : 0;
-  const hasRoom = !existing || (existing.isMulti && usedMinutes+minutes<=15);
+  const headNew = isHeadKey(startKey) && !existing ? headGeometry(dateStr, startKey.slice(0,-1)) : null;
+  if(isHeadKey(startKey) && !existing && !headNew){
+    showNotice('No Room Here', "There is no free gap here any more.");
+    return;
+  }
+  const limitMin = existing ? (existing.limit||15) : (headNew ? headNew.limit : 15);
+  const usedMinutes = (existing && existing.isMulti) ? (existing.padMin||0) + existing.subItems.reduce((sum,s)=>sum+s.duration,0) : (headNew ? headNew.pad : 0);
+  const hasRoom = !existing || (existing.isMulti && usedMinutes+minutes<=limitMin);
+  if(!existing && usedMinutes+minutes>limitMin){
+    showNotice('No Room Here', "That gap doesn't have enough space left for a "+minutes+"-minute task.");
+    return;
+  }
   if(!hasRoom){
     showNotice('No Room Here', "That 15-minute slot doesn't have enough space left for a "+minutes+"-minute task. Pick an empty or partially-used slot instead.");
     return;
   }
   if(!existing){
-    d.slots[startKey] = { isMulti:true, subItems:[] };
+    d.slots[startKey] = headNew ? { isMulti:true, subItems:[], headOf:startKey.slice(0,-1), limit:headNew.limit, ...(headNew.pad?{padMin:headNew.pad}:{}) } : { isMulti:true, subItems:[] };
   }
   const sub = Object.assign({id:uid(), duration:minutes, completed:false}, data);
   d.slots[startKey].subItems.push(sub);
@@ -3679,7 +3700,8 @@ function deleteSubItem(dateStr, slotKey, subId){
   if(slot.subItems.length===0 && !slot.padMin) delete d.slots[slotKey];
   saveState(); renderDaily();
 }
-function renderMultiSlot(dateStr, gridRowIdx, slotKey, slot){
+function renderMultiSlot(dateStr, gridRowIdx, slotKey, slot, isHead){
+  const limitMin = slot.limit || 15;
   const pxPerMin = 2; // 30px row / 15 minutes
   let cursor = slot.padMin || 0; // minutes at the top of this quarter taken by a pushed-down task above
   let boxesHtml = '';
@@ -3703,15 +3725,15 @@ function renderMultiSlot(dateStr, gridRowIdx, slotKey, slot){
     cursor += sub.duration;
   });
   const usedMinutes = (slot.padMin||0) + slot.subItems.reduce((sum,s)=>sum+s.duration,0);
-  if(usedMinutes<15){
+  if(usedMinutes<limitMin){
     const top = usedMinutes*pxPerMin;
-    const height = (15-usedMinutes)*pxPerMin;
+    const height = (limitMin-usedMinutes)*pxPerMin;
     boxesHtml += `<div class="task-box" style="position:absolute;top:${top}px;height:${height}px;left:0;right:0;margin:0 5px;box-sizing:border-box;cursor:pointer;" onclick="openSlotAssign('${dateStr}','${slotKey}')">
-      <div class="empty-hint" style="font-size:9px;">+ ${15-usedMinutes}m free</div>
+      <div class="empty-hint" style="font-size:9px;">+ ${limitMin-usedMinutes}m free</div>
     </div>`;
   }
   const mOff = slot.pushOffset || 0;
-  return `<div data-slotkey="${slotKey}" data-datestr="${dateStr}" style="grid-row:${gridRowIdx+1};grid-column:3;position:relative;height:30px;${mOff?`transform:translateY(${mOff*2}px);z-index:3;`:''}">${boxesHtml}</div>`;
+  return `<div data-slotkey="${slotKey}" data-datestr="${dateStr}" style="grid-row:${gridRowIdx+1};grid-column:3;position:relative;height:${isHead?limitMin*2:30}px;${mOff?`transform:translateY(${mOff*2}px);z-index:3;`:''}${isHead?'z-index:4;':''}">${boxesHtml}</div>`;
 }
 
 function showConflictModal(){
@@ -4329,40 +4351,118 @@ async function syncStrety(){
    multiples move the blocks down whole rows. A remainder of 5 or 10 leaves each block sitting
    part-way into the row (pushOffset) and the last block overhangs into the next row, which keeps
    only the remaining 5/10 minutes free for a small task - same rule as allocating 5/10 minute tasks. */
-function pushIsFixed(s){ return s.source==='default' || s.source==='outlook' || s.source==='weeklygoal' || s.source==='fieldledger'; }
-function pushIsPad(s){ return !!(s && s.isMulti && s.padMin && (!s.subItems || s.subItems.length===0)); }
+// immovable when something else is pushed into them: routines, weekly goals, Field Ledger and Outlook MEETINGS
+function pushIsFixed(s){ return s.source==='default' || s.source==='weeklygoal' || s.source==='fieldledger' || (s.source==='outlook' && !!s.outlookMeeting); }
+// can be the item you start a move from: everything except routines, weekly goals and Field Ledger (Outlook items can, meetings included)
+function pushCanStart(s){ return !(s.source==='default' || s.source==='weeklygoal' || s.source==='fieldledger'); }
+function pushIsPad(s){ return !!(s && s.isMulti && !s.headOf && s.padMin && (!s.subItems || s.subItems.length===0)); }
+function isHeadKey(k){ return /h$/.test(k); }
 function pushBlockName(s){
   if(s.taskId){ const t = state.tasks.find(x=>x.id===s.taskId) || state.archive.find(x=>x.id===s.taskId); if(t) return t.name; }
   return s.customText || s.name || 'a fixed block';
 }
-function planPushDown(dateStr, startKey, T){
-  const d = ensureDaily(dateStr), allQ = quarters();
-  const blocks = [];
+function pushGetBlocks(d){
+  const allQ = quarters(), blocks = [];
   allQ.forEach((q,i)=>{
     const s = d.slots[q.key];
     if(!s || s.occupiedBy || pushIsPad(s)) return;
-    blocks.push({key:q.key, idx:i, span: s.isMulti ? 1 : Math.max(1, s.span||1), slot:s, off:s.pushOffset||0, fixed:pushIsFixed(s)});
+    const span = s.isMulti ? 1 : Math.max(1, s.span||1);
+    blocks.push({key:q.key, idx:i, span, slot:s, off:s.pushOffset||0,
+      fixed: pushIsFixed(s) || !!(s.isMulti && s.padMin>0)});
   });
+  return blocks;
+}
+function pushHeadItemCount(d, key){ const hs = d.slots[key+'h']; return hs && hs.subItems ? hs.subItems.length : 0; }
+function blkStart(d,b){ return b.idx*15 + (pushHeadItemCount(d,b.key)>0 ? 0 : b.off); }
+function blkEnd(b){ return (b.idx+b.span)*15 + b.off; }
+// free gap at the top of a pushed-down block's own row (the 'head'): where a small task can still be allocated
+function headGeometry(dateStr, baseKey){
+  const d = ensureDaily(dateStr), blocks = pushGetBlocks(d);
+  const i = blocks.findIndex(b=>b.key===baseKey);
+  if(i<0 || !(blocks[i].off>0)) return null;
+  const b = blocks[i], prevEnd = i>0 ? blkEnd(blocks[i-1]) : 0;
+  const pad = Math.max(0, prevEnd - b.idx*15);
+  const limit = b.off;
+  return (limit-pad>0) ? {pad, limit} : null;
+}
+// Re-derive every spacer from the real positions of the blocks, so nothing stale is left behind
+// (e.g. after a pushed task is deleted, its gap and overhang spacers disappear).
+function normalizePushGeometry(dateStr){
+  const d = state.daily[dateStr]; if(!d) return false;
+  const allQ = quarters(); let changed = false;
+  Object.keys(d.slots).forEach(k=>{
+    const s = d.slots[k];
+    if(!s || !s.isMulti || s.headOf) return;
+    if(pushIsPad(s)){ delete d.slots[k]; changed = true; }
+    else if(s.padMin){ delete s.padMin; changed = true; }
+  });
+  const blocks = pushGetBlocks(d);
+  blocks.forEach(b=>{
+    if(!(b.off>0)) return;
+    const oi = b.idx + b.span; if(oi>=allQ.length) return;
+    const key = allQ[oi].key, t = d.slots[key];
+    if(!t){ d.slots[key] = {isMulti:true, subItems:[], padMin:b.off}; changed = true; }
+    else if(t.isMulti && (t.pushOffset||0)!==b.off){ t.padMin = b.off; changed = true; }
+  });
+  Object.keys(d.slots).filter(isHeadKey).forEach(hk=>{
+    const hs = d.slots[hk], base = hk.slice(0,-1), bs = d.slots[base];
+    const items = hs && hs.subItems ? hs.subItems.length : 0;
+    if(!hs || items===0){ delete d.slots[hk]; changed = true; return; }
+    if(!bs || bs.occupiedBy || !(bs.pushOffset>0)){
+      // the block that made this gap is gone / back on the grid: the small tasks become an ordinary partly-used row
+      if(!bs){ d.slots[base] = {isMulti:true, subItems:hs.subItems}; }
+      else { /* row taken by something else: keep the items where they are by leaving them as a head slot */ return; }
+      delete d.slots[hk]; changed = true; return;
+    }
+    const g = headGeometry(dateStr, base);
+    const pad = g ? g.pad : 0, limit = bs.pushOffset;
+    if((hs.padMin||0)!==pad || hs.limit!==limit){ if(pad) hs.padMin = pad; else delete hs.padMin; hs.limit = limit; changed = true; }
+  });
+  return changed;
+}
+function planPush(dateStr, startKey, T){
+  const d = ensureDaily(dateStr), allQ = quarters(), blocks = pushGetBlocks(d);
   const first = blocks.findIndex(b=>b.key===startKey);
   if(first<0) return {ok:false, reason:'That item could not be found on the schedule.'};
-  if(blocks[first].fixed) return {ok:false, reason:'Fixed blocks (routines, meetings, weekly goals) cannot be pushed.'};
-  const moves = []; let p = T, prevEnd = 0;
-  for(let i=first; i<blocks.length && p>0; i++){
-    const b = blocks[i];
-    const start = b.idx*15 + b.off, end = (b.idx+b.span)*15 + b.off;
-    if(i>first){ p = Math.max(0, p - (start - prevEnd)); if(p<=0) break; }
-    if(b.fixed) return {ok:false, reason:`Not enough room — pushing by ${T} min would run into "${pushBlockName(b.slot)}", which is fixed.`};
-    moves.push({b, shift:p}); prevEnd = end;
+  if(!pushCanStart(blocks[first].slot)) return {ok:false, reason:'Routines, weekly goals and Field Ledger items cannot be moved.'};
+  const moves = [];
+  const amt = Math.abs(T);
+  if(T>0){
+    let p = T, prevEnd = 0;
+    for(let i=first; i<blocks.length && p>0; i++){
+      const b = blocks[i], start = blkStart(d,b), end = blkEnd(b);
+      if(i>first){
+        const gap = start - prevEnd;
+        if(gap < p){
+          if(b.fixed) return {ok:false, reason:`Not enough room — moving down ${amt} min would run into "${pushBlockName(b.slot)}", which is fixed.`};
+          if(pushHeadItemCount(d,b.key)>0) return {ok:false, reason:`Not enough room — there is a small task in the gap above "${pushBlockName(b.slot)}". Move or remove it first.`};
+        }
+        p = Math.max(0, p - gap); if(p<=0) break;
+      }
+      moves.push({b, shift:p}); prevEnd = end;
+    }
+  } else {
+    const fb = blocks[first];
+    if(pushHeadItemCount(d,fb.key)>0) return {ok:false, reason:'There is a small task in the gap above this one — move or remove it first.'};
+    const prevEnd = first>0 ? blkEnd(blocks[first-1]) : 0;
+    const avail = fb.idx*15 + fb.off - prevEnd;
+    if(avail<=0) return {ok:false, reason:'There is no free time above this task to move it up into.'};
+    if(amt>avail) return {ok:false, reason:`Only ${avail} min is free above this task, so it can't move up ${amt} min.`};
+    moves.push({b:fb, shift:-amt});
+    for(let i=first+1;i<blocks.length;i++){
+      const b = blocks[i];
+      if(blkStart(d,b)!==blkEnd(blocks[i-1]) || b.fixed || pushHeadItemCount(d,b.key)>0) break; // only the touching run of tasks moves up together
+      moves.push({b, shift:-amt});
+    }
   }
   moves.forEach(m=>{
-    const total = m.b.off + m.shift;
-    m.q = Math.floor(total/15); m.r = total%15; m.newIdx = m.b.idx + m.q;
+    const startMin = m.b.idx*15 + m.b.off + m.shift;
+    m.newIdx = Math.floor(startMin/15); m.r = startMin - m.newIdx*15;
   });
   const last = moves[moves.length-1];
   const overhangIdx = last.newIdx + last.b.span;
-  if(overhangIdx > allQ.length || (last.r>0 && overhangIdx >= allQ.length))
-    return {ok:false, reason:`Not enough room — pushing by ${T} min would run past the end of the day.`};
-  // every target quarter must be free (or hold one of the moving blocks / an old pad)
+  if(moves.some(m=>m.newIdx<0) || overhangIdx>allQ.length || (last.r>0 && overhangIdx>=allQ.length))
+    return {ok:false, reason:`Not enough room — moving by ${amt} min would run past the ${T>0?'end':'start'} of the day.`};
   const movingKeys = new Set();
   moves.forEach(m=>{ for(let k=0;k<m.b.span;k++) movingKeys.add(allQ[m.b.idx+k].key); });
   const targets = [];
@@ -4371,23 +4471,19 @@ function planPushDown(dateStr, startKey, T){
   for(const ti of targets){
     const key = allQ[ti].key, s = d.slots[key];
     if(s && !movingKeys.has(key) && !pushIsPad(s))
-      return {ok:false, reason:`Not enough room — pushing by ${T} min would collide with something already scheduled.`};
+      return {ok:false, reason:`Not enough room — moving by ${amt} min would collide with something already scheduled.`};
   }
-  return {ok:true, moves, last, overhangIdx, firstIdx: blocks[first].idx};
+  return {ok:true, moves};
 }
-function applyPushDown(dateStr, startKey, T){
+function applyPush(dateStr, startKey, T){
   const d = ensureDaily(dateStr), allQ = quarters();
-  const plan = planPushDown(dateStr, startKey, T);
-  if(!plan.ok){ showNotice('Cannot Push Down', plan.reason); return false; }
-  // drop old overhang pads in the affected region
-  Object.keys(d.slots).forEach(k=>{
-    const i = allQ.findIndex(q=>q.key===k);
-    if(i>=plan.firstIdx && i<=plan.overhangIdx && pushIsPad(d.slots[k])) delete d.slots[k];
-  });
-  // lift every moving block, then lay them down at their new rows
-  plan.moves.forEach(m=>{
-    for(let k=0;k<m.b.span;k++) delete d.slots[allQ[m.b.idx+k].key];
-  });
+  const plan = planPush(dateStr, startKey, T);
+  if(!plan.ok){ showNotice('Cannot Move', plan.reason); return false; }
+  // clear spacers first - they are re-derived from the new positions afterwards
+  Object.keys(d.slots).forEach(k=>{ if(pushIsPad(d.slots[k])) delete d.slots[k]; });
+  const m0 = plan.moves[0];
+  const headSlot = d.slots[m0.b.key+'h'];
+  plan.moves.forEach(m=>{ for(let k=0;k<m.b.span;k++) delete d.slots[allQ[m.b.idx+k].key]; });
   plan.moves.forEach(m=>{
     const s = m.b.slot;
     if(m.r>0) s.pushOffset = m.r; else delete s.pushOffset;
@@ -4395,41 +4491,67 @@ function applyPushDown(dateStr, startKey, T){
     d.slots[pk] = s;
     if(!s.isMulti){ s.span = m.b.span; for(let k=1;k<m.b.span;k++) d.slots[allQ[m.newIdx+k].key] = {occupiedBy:pk}; }
   });
-  if(plan.last.r>0 && !d.slots[allQ[plan.overhangIdx].key]){
-    d.slots[allQ[plan.overhangIdx].key] = {isMulti:true, subItems:[], padMin:plan.last.r};
+  // small tasks that sat in the gap above the first moved block: keep them in place
+  if(headSlot && headSlot.subItems && headSlot.subItems.length){
+    const oldKey = m0.b.key;
+    if(m0.newIdx===m0.b.idx){ /* block still starts in the same row - stays a head slot */ }
+    else if(!d.slots[oldKey]){ d.slots[oldKey] = {isMulti:true, subItems:headSlot.subItems}; delete d.slots[oldKey+'h']; }
   }
+  normalizePushGeometry(dateStr);
   saveState(); renderDaily();
   return true;
 }
+function applyPushDown(dateStr, startKey, T){ return applyPush(dateStr, startKey, T); }
 window._pushState = null;
-function pushAmountLabel(v){ return v+' min'; }
+function pushLabel(s){ return (s.dir==='up'?'Up ':'Down ')+s.amount+' min'; }
 function openPushDownPicker(dateStr, slotKey){
-  window._pushState = {dateStr, slotKey, amount:15};
+  window._pushState = {dateStr, slotKey, amount:15, dir:'down'};
   document.getElementById('modal-root').innerHTML = `<div class="modal-back" onclick="if(event.target===this) closeModal()">
     <div class="modal push-modal">
-      <h2>⏬ Push tasks down</h2>
-      <p>Moves this task and every task after it later in the day.</p>
+      <h2>⇅ Move tasks</h2>
+      <p>Moves this task and the tasks that follow it.</p>
+      <div class="push-dir">
+        <button class="push-dir-btn" id="push-dir-up" onclick="pushSetDir('up')">⏫ Up</button>
+        <button class="push-dir-btn on" id="push-dir-down" onclick="pushSetDir('down')">⏬ Down</button>
+      </div>
       <div class="push-picker">
         <button class="push-arrow" onclick="pushStep(1)" aria-label="More">▲</button>
-        <div class="push-val" id="push-val">15 min</div>
+        <div class="push-val" id="push-val">${pushLabel(window._pushState)}</div>
         <button class="push-arrow" onclick="pushStep(-1)" aria-label="Less">▼</button>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost btn-small" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-accent btn-small" onclick="confirmPushDown()">Push down</button>
+        <button class="btn btn-accent btn-small" onclick="confirmPushDown()">Move</button>
       </div>
     </div>
   </div>`;
 }
+function pushSetDir(dir){
+  const s = window._pushState; if(!s) return;
+  s.dir = dir;
+  const u = document.getElementById('push-dir-up'), dn = document.getElementById('push-dir-down');
+  if(u) u.classList.toggle('on', dir==='up'); if(dn) dn.classList.toggle('on', dir==='down');
+  const el = document.getElementById('push-val'); if(el) el.textContent = pushLabel(s);
+}
 function pushStep(dir){
   const s = window._pushState; if(!s) return;
   s.amount = Math.max(5, Math.min(240, s.amount + dir*5));
-  const el = document.getElementById('push-val'); if(el) el.textContent = pushAmountLabel(s.amount);
+  const el = document.getElementById('push-val'); if(el) el.textContent = pushLabel(s);
 }
 function confirmPushDown(){
   const s = window._pushState; if(!s) return;
   closeModal();
-  applyPushDown(s.dateStr, s.slotKey, s.amount);
+  applyPush(s.dateStr, s.slotKey, s.dir==='up' ? -s.amount : s.amount);
+}
+// the free gap above a moved task, drawn as its own small row so something can be allocated into it
+function renderPushHead(dateStr, idx, key, slot){
+  if(!(slot && slot.pushOffset>0)) return '';
+  const d = state.daily[dateStr];
+  const hs = d && d.slots[key+'h'];
+  const g = headGeometry(dateStr, key);
+  if(!g && !hs) return '';
+  const tmp = hs || {isMulti:true, subItems:[], padMin:g.pad||undefined, limit:g.limit};
+  return renderMultiSlot(dateStr, idx, key+'h', tmp, true);
 }
 
 /* ================= RIGHT-CLICK TASK MENU ================= */
@@ -4493,7 +4615,7 @@ function buildCtxItems(taskId, slotCtx){
   const active = t && state.tasks.some(x=>x.id===t.id);
   if(slotCtx){
     const s = slotCtx.slot;
-    if(!pushIsFixed(s) && !pushIsPad(s)) items.push({icon:'⏬', label:'Push tasks down…', action:()=>openPushDownPicker(slotCtx.dateStr, slotCtx.slotKey)});
+    if(pushCanStart(s) && !pushIsPad(s) && !isHeadKey(slotCtx.slotKey)) items.push({icon:'⇅', label:'Move tasks up / down…', action:()=>openPushDownPicker(slotCtx.dateStr, slotCtx.slotKey)});
   }
   if(active){
     items.push({icon:'✎', label:'Edit task…', action:()=>openEditTaskModal(t.id)});
@@ -5007,12 +5129,16 @@ function processOutlookEvents(dateStr, events, opts){
     let snapM = Math.round(sm/15)*15, snapH = sh;
     if(snapM===60){ snapM=0; snapH++; }
     if(snapH<4 || snapH>21){ if(!isAuto) flagged.push(ev); return; }
+    const origId = String(ev.title).trim().toLowerCase()+'|'+ev.start;
+    const sameKeySlot = d.slots['q'+snapH+'_'+snapM];
+    if(Object.values(d.slots).some(s=>s && s.source==='outlook' && s.outlookOrig===origId)
+       || (sameKeySlot && sameKeySlot.source==='outlook' && !sameKeySlot.outlookOrig && String(sameKeySlot.customText||'').trim().toLowerCase()===String(ev.title).trim().toLowerCase())) return; // already on the day (possibly moved down) - don't add it again
     if(isAuto){
       const key = 'q'+snapH+'_'+snapM;
       const spanKeys = spanKeysFrom(snapH, snapM, minutes);
       const hasConflict = spanKeys.length===0 || spanKeys.some(k=>d.slots[k]);
       if(!hasConflict){
-        const data = {customText: ev.title, source:'outlook', outlookAuto:true};
+        const data = {customText: ev.title, source:'outlook', outlookAuto:true, outlookOrig:origId};
         if(matchedBucket==='Meeting') data.outlookMeeting = true;
         writeSpanBlock(dateStr, key, minutes, data);
         autoAdded++;
@@ -5123,7 +5249,7 @@ function addFlaggedEvent(dateStr, i){
     const hasConflict = spanKeys.length===0 || spanKeys.some(k=>d.slots[k]);
     if(!hasConflict){
       const isMeeting = /meeting|call|sync|1:1|catch up|catchup|standup|review|huddle/i.test(ev.title||'') || /meeting/i.test(ev.category||'');
-      writeSpanBlock(dateStr, key, minutes, {customText: ev.title, source:'outlook', outlookMeeting: isMeeting});
+      writeSpanBlock(dateStr, key, minutes, {customText: ev.title, source:'outlook', outlookMeeting: isMeeting, outlookOrig:String(ev.title).trim().toLowerCase()+'|'+ev.start});
       saveState();
     } else {
       // genuinely clashes with something already fixed in place -- never silently drop it,
@@ -5907,6 +6033,12 @@ function computeDayCompletion(dateStr){
       if(slot.source==='default' || slot.noDone) return;
       const mins = (slot.span||1)*15;
       if(slot.completed) done += mins;
+    });
+    Object.keys(dObj.slots).filter(k=>/^q\d+_\d+h$/.test(k)).forEach(k=>{
+      const hh = parseInt(k.slice(1));
+      if(hh<startH || hh>endH) return;
+      const hs = dObj.slots[k];
+      if(hs && hs.subItems) hs.subItems.forEach(sub=>{ if(sub.completed) done+=sub.duration; });
     });
     return {total:fixedTotal, done};
   }
